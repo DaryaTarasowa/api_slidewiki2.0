@@ -1,3 +1,5 @@
+var _ = require('underscore');
+
 function Library(){
     
     this.strip_tags = function(input, allowed) {// remove all tags from a string, except those in allowed (e.g. strip_tags(str, '<i><b>'))
@@ -11,7 +13,28 @@ function Library(){
         .replace(tags, function ($0, $1) {
             return allowed.indexOf('<' + $1.toLowerCase() + '>') > -1 ? $0 : '';
         });
-    };    
-}
+    }; 
+    
+    this.sortByKey = function (array, key) {
+        return array.sort(function(a, b) {
+            var x = a[key]; var y = b[key];
+            return ((x < y) ? -1 : ((x > y) ? 1 : 0));
+        });
+    };
+    
+	
 
+    this.arrUnique = function(arr) {
+        var cleaned = [];
+        arr.forEach(function(itm) {
+            var unique = true;
+            cleaned.forEach(function(itm2) {
+                if (_.isEqual(itm, itm2)) unique = false;
+            });
+            if (unique)  cleaned.push(itm);
+        });
+        return cleaned;
+    }
+}
+    
 module.exports = Library;

@@ -68,6 +68,33 @@ function Slide(connection) {
         }        
     };
     
+    this.getContributors = function(rev_id, contributors, callback){
+        //TODO: the user having different roles should be filtered?
+        //TODO: translators
+        var sql = 'SELECT users.id AS id, users.username AS username, users.picture AS avatar, slide_revision.based_on AS based_on FROM slide_revision INNER JOIN users ON(slide_revision.user_id=users.id) WHERE ?? = ? LIMIT 1';
+        var inserts = ['slide_revision.id', rev_id];
+        sql = mysql.format(sql, inserts);
+        connection.query(sql,function(err,results){
+            if (err) throw err;
+            
+            var slide = new Slide(connection);
+            var based_on = results[0].based_on;
+            delete results[0].based_on;
+            if (based_on){      //this is not the first revision                 
+                results[0].role = 'contributor';                
+                contributors.push(results[0]);                    
+                slide.getContributors(based_on, contributors, function(result){
+                    callback(result);
+                });                                                              
+            }else{                
+                results[0].role = 'creator';
+                contributors.push(results[0]);                
+                contributors = lib.arrUnique(contributors);                          
+                callback(contributors);
+            }            
+        });
+    };
+    
     this.setAllTitles = function(callback){
         //sets all titles in the database parsing the content, returns the set of all titles
         

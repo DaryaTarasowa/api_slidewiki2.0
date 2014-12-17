@@ -2,6 +2,9 @@
 var express = require('express');
 var bodyParser = require('body-parser');
 var mysql = require('mysql');
+var Deck = require('./models/deck');
+var Slide = require('./models/slide');
+		
 
 		
 function start(){
@@ -34,6 +37,8 @@ function start(){
 
 		console.log('connected as id ' + connection.threadId);
 	});
+        var deck = new Deck(connection);
+        var slide = new Slide(connection);
 
 	// Create Express router
 	var router = express.Router();
@@ -42,7 +47,7 @@ function start(){
 	// http://localhost:3500/api
 	router.get('/', function(req, res) {
 		
-		res.json({ message: 'You are running dangerously low on beer!' });
+		res.json({ message: 'You are running dangerously low on coffee!' });
 	});
 	
 	//var deckRoute = router.route('/deck/tree/:rev_id');
@@ -50,34 +55,36 @@ function start(){
 	// Create endpoint /api/deck 
 	router.get('/deck/tree/:rev_id', function(req, res) {
 		
-		var Deck = require('./models/deck');
-		var deck = new Deck(connection);
-		deck.getTree(req.params.rev_id, {}, function(tree) {res.json(tree);});
-		
+		deck.getTree(req.params.rev_id, {}, function(tree) {res.json(tree);});		
 	});
         
         router.get('/deck/:rev_id', function(req, res) {
 		
-		var Deck = require('./models/deck');
-		var deck = new Deck(connection);
-		deck.getMetadata(req.params.rev_id, function (metadata) {res.json(metadata);});
-		
+		deck.getMetadata(req.params.rev_id, function (metadata) {res.json(metadata);});		
 	});
         
-        router.get('/slide/:rev_id', function(req, res) {
+        router.get('/slide/:rev_id', function(req, res) {		
 		
-		var Slide = require('./models/slide');
-		var slide = new Slide(connection);
-		slide.getMetadata(req.params.rev_id, function(metadata) {res.json(metadata);});
-		
+		slide.getMetadata(req.params.rev_id, function(metadata) {res.json(metadata);});		
 	});
         
         router.get('/scripts/slide/setAllTitles', function(req, res) {
-		
-		var Slide = require('./models/slide');
-		var slide = new Slide(connection);
-		slide.setAllTitles(function(response) {res.json(response);});
-		
+            
+		slide.setAllTitles(function(response) {res.json(response);});		
+	});
+        
+        router.get('/content/contributors/:type/:rev_id', function(req, res) {
+            
+            switch(req.params.type) {
+                case 'deck':
+                    //deck.getContributors(req.params.rev_id, [], function(contributors) {res.json(contributors);})
+                    break;
+                case 'slide':
+                    slide.getContributors(req.params.rev_id, [], function(contributors) {res.json(contributors);})
+                    break;
+                default:
+                    res.json('Error: type of Content is not defined!');
+            } 				
 	});
 	
 	// Register all our routes with /api
@@ -85,7 +92,7 @@ function start(){
 
 	// Start the server
 	app.listen(port);
-	console.log('Insert beer on port ' + port);
+	console.log('Insert coffee on port ' + port);
 }
 
 exports.start = start;
