@@ -45,17 +45,26 @@ function Slide(connection) {
         
         var patt = new RegExp(/<h2(.*?)>(.*?)<\/( *?)h2>/);
         var title = patt.exec(content);
+        var content = content.replace(patt, '');
         if (title){ //title is set
             title = lib.strip_tags(title[0],'').trim(); //remove tags and trimming
         }        
-        var sql = "UPDATE ?? SET title = ? WHERE ?? = ? LIMIT 1";
+        var sql_title = "UPDATE ?? SET title = ? WHERE ?? = ? LIMIT 1";
+        var sql_content = "UPDATE ?? SET content = ? WHERE ?? = ? LIMIT 1";
+        
         if (title){ //title is not empty
-            var inserts = ['slide_revision', title, 'id', rev_id];
-            sql = mysql.format(sql, inserts);
-            connection.query(sql, function(err, results) {
+            var inserts_title = ['slide_revision', title, 'id', rev_id]; //set title field (only tags)
+            sql_title = mysql.format(sql_title, inserts_title);
+            connection.query(sql_title, function(err, results) {
                     if (err) throw err;
 
-                    callback(title);
+                    var inserts_content = ['slide_revision', content, 'id', rev_id]; //remove title from content
+                        sql_content = mysql.format(sql_content, inserts_content);
+                        connection.query(sql_content, function(err, results) {
+                            if (err) throw err;
+                    
+                            callback(title);
+                    });                    
             }); 
         }else{ //no title is set in the content or empty title
             var inserts = ['slide_revision', 'Untitled', 'id', rev_id];
@@ -92,6 +101,29 @@ function Slide(connection) {
                 contributors = lib.arrUnique(contributors);                          
                 callback(contributors);
             }            
+        });
+    };
+    
+    this.getTags = function(rev_id, callback){
+            
+        var sql = 'SELECT tag FROM tag WHERE ?? = ? AND item_type = "slide"';
+        var inserts = ['item_id', rev_id];
+        var tags = [];
+        sql = mysql.format(sql, inserts);
+        connection.query(sql,function(err,results){
+            if (err) throw err;
+            
+            if (results.length){
+                results.forEach(function(tag_object){
+                    tags.push(tag_object.tag);
+                    if (tags.length === results.length){
+                        callback(tags);
+                    };
+                });  
+            }else{
+                callback([]);
+            }
+                               
         });
     };
     

@@ -77,14 +77,32 @@ function start(){
             
             switch(req.params.type) {
                 case 'deck':
-                    //deck.getContributors(req.params.rev_id, [], function(contributors) {res.json(contributors);})
+                    deck.getContributors(req.params.rev_id, function(contributors) {res.json(contributors);});
                     break;
                 case 'slide':
-                    slide.getContributors(req.params.rev_id, [], function(contributors) {res.json(contributors);})
+                    slide.getContributors(req.params.rev_id, [], function(contributors) {res.json(contributors);});
                     break;
                 default:
                     res.json('Error: type of Content is not defined!');
             } 				
+	});
+        
+        router.get('/content/tags/:type/:rev_id', function(req, res) {
+            
+            switch(req.params.type) {
+                case 'deck':
+                    deck.getTags(req.params.rev_id, function(tags) {res.json(tags);});
+                    break;
+                case 'slide':
+                    slide.getTags(req.params.rev_id, function(tags) {res.json(tags);});
+                    break;
+                default:
+                    res.json('Error: type of Content is not defined!');
+            } 				
+	});
+        
+        router.get('/deck/slides/:id/offset/:offset/limit/:limit', function(req, res) {            
+            deck.getSlides(req.params.id, req.params.offset, req.params.limit, function(slides){res.json(slides);});			
 	});
 	
 	// Register all our routes with /api
