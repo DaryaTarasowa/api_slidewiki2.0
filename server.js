@@ -2,10 +2,13 @@
 var express = require('express');
 var bodyParser = require('body-parser');
 var mysql = require('mysql');
+var passport = require('passport');
 var Deck = require('./models/deck');
 var Slide = require('./models/slide');
-var Config = require('./config');
-var config = new Config();
+var User = require('./models/user');
+var authController = require('./controllers/auth');
+var deckController = require('./controllers/deck');
+var connection = require('./config').connection;
 
 		
 function start(){
@@ -17,14 +20,11 @@ function start(){
 	app.use(bodyParser.urlencoded({
 		extended: true
 	}));
-
         
-	// Use environment defined port or 8080
-	var port = config.port;
+        app.use(passport.initialize());
 	
-	//connect to mysql
-	var connection  = config.connection;
-		
+	var port = require('./config').port;
+	
 	connection.connect(function(err) {
 		if (err) {
 			console.error('error connecting: ' + err.stack);
@@ -33,37 +33,24 @@ function start(){
 
 		console.log('connected as id ' + connection.threadId);
 	});
-        var deck = new Deck(connection);
-        var slide = new Slide(connection);
+        var deck = new Deck();
+        var slide = new Slide();
+        var user = new User();
 
 	// Create Express router
 	var router = express.Router();
 
 	
-	router.get('/', function(req, res) {
 		
-		res.json({ message: 'You are running dangerously low on coffee!' });
-	});	
-
-	
-	router.get('/deck/tree/:rev_id', function(req, res) {
-                if (parseInt(req.params.rev_id) > 0){
-                    deck.getTree(req.params.rev_id, {}, function(tree) {res.json(tree);});
-                }else{
-                    res.json({error : "rev_id is not valid!"});
-                }         		
-	});
+	router.route('/deck/tree/:rev_id')
+            .get(authController.isAuthenticated, deckController.getTree);
         
         router.get('/deck/:rev_id', function(req, res) {
-            //if (typeof req.params.rev_id  !== 'undefined'){
-                if (parseInt(req.params.rev_id) > 0){
-                    deck.getMetadata(req.params.rev_id, function (metadata) {res.json(metadata);});
-                }else{
-                    res.json({error : "rev_id is not valid!"});
-                }
-           // }else{
-            //    res.json('Error: rev_id is not set!');
-           // }            		
+            if (parseInt(req.params.rev_id) > 0){
+                deck.getMetadata(req.params.rev_id, function (metadata) {res.json(metadata);});
+            }else{
+                res.json({error : "rev_id is not valid!"});
+            }       		
 	});
         
         router.get('/slide/:rev_id', function(req, res) {		
@@ -74,9 +61,35 @@ function start(){
             }
 	});
         
+        router.get('/user/:id', function(req, res) {		
+            if (parseInt(req.params.id) > 0){
+                user.getMetadata(req.params.id, function(metadata) {res.json(metadata);});	
+            }else{
+                res.json({error : "id is not valid!"});
+            }
+	});
+        
+        router.get('/user/login/:username/:pass', function(req, res) {		
+            if (req.params.username.length > 0){
+                user.verifyPassword(req.params.username, req.params.pass, function(error,isMatch) {
+                    if (error){
+                        res.json({error : error});
+                    }else{
+                        if (!isMatch){
+                            res.json('Wrong pass!');
+                        }else{
+                            res.json('Authentification succed!');
+                        }
+                    }                
+                });	
+            }else{
+                res.json({error : "id is not valid!"});
+            }
+	});
+        
         router.get('/scripts/slide/setAllTitles', function(req, res) {
             
-		slide.setAllTitles(function(response) {res.json(response);});		
+            slide.setAllTitles(function(response) {res.json(response);});		
 	});
         
         router.get('/content/contributors/:type/:rev_id', function(req, res) {
@@ -130,7 +143,7 @@ function start(){
 
 	// Start the server
 	app.listen(port);
-	console.log('Insert coffee on port ' + port);
+	
 }
 
 exports.start = start;

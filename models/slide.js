@@ -1,10 +1,9 @@
 var mysql = require('mysql');
-var Library = require('./library');
-var lib = new Library();
-
+var lib = require('./library');
+var connection = require('../config').connection;
 
 // Constructor
-function Slide(connection) {
+function Slide() {
     
     this.getTitle = function(rev_id, callback){
         //gets the title either from title field or parsing the content, returns the cb(title)
@@ -19,7 +18,7 @@ function Slide(connection) {
                 if (results[0].title){
                     callback(results[0].title);
                 }else{
-                    var slide = new Slide(connection);
+                    var slide = new Slide();
                     slide.getContent(rev_id, function(content){
                         if (content.error){
                             callback(content);
@@ -149,7 +148,7 @@ function Slide(connection) {
         var result = [];
         var sql = "SELECT id FROM ?? WHERE 1";
         var inserts = ['slide_revision'];
-        var slide = new Slide(connection);
+        var slide = new Slide();
         sql = mysql.format(sql, inserts);
         connection.query(sql, function(err, results){
             if (err) callback({error : err});
@@ -180,7 +179,7 @@ function Slide(connection) {
             if (err) callback({error : err});
             
             if (results.length){
-               var slide = new Slide(connection);
+               var slide = new Slide();
                 slide.getTitle(id, function(title){
                     if (title.error) callback(title);
                     

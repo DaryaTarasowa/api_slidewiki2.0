@@ -1,8 +1,8 @@
 var _ = require('underscore');
 
-function Library(){
+
     
-    this.strip_tags = function(input, allowed) {// remove all tags from a string, except those in allowed (e.g. strip_tags(str, '<i><b>'))
+    exports.strip_tags = function(input, allowed) {// remove all tags from a string, except those in allowed (e.g. strip_tags(str, '<i><b>'))
         allowed = (((allowed || '') + '')
         .toLowerCase()
         .match(/<[a-z][a-z0-9]*>/g) || [])
@@ -15,7 +15,7 @@ function Library(){
         });
     }; 
     
-    this.sortByKey = function (array, key) {
+    exports.sortByKey = function (array, key) {
         return array.sort(function(a, b) {
             var x = a[key]; var y = b[key];
             return ((x < y) ? -1 : ((x > y) ? 1 : 0));
@@ -24,7 +24,7 @@ function Library(){
     
 	
 
-    this.arrUnique = function(arr) {
+    exports.arrUnique = function(arr) {
         var cleaned = [];
         arr.forEach(function(itm) {
             var unique = true;
@@ -35,6 +35,6 @@ function Library(){
         });
         return cleaned;
     }
-}
+
     
-module.exports = Library;
+

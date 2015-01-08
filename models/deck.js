@@ -1,16 +1,16 @@
 var mysql = require('mysql');
 var Slide = require('./slide');
-var Library = require('./library');
-var lib = new Library();
+var lib = require('./library');
+var connection = require('../config').connection;
 
-function Deck(connection) {
+function Deck() {
     
     //high-order fundtions
     
     this.ifSlideThen = function(child, callback){
         //parsing the tree, on slide - doing callback, on deck - getting deeper
         
-        var deck = new Deck(connection);
+        var deck = new Deck();
         if (child.type === 'slide'){
             callback(child);
         }else{            
@@ -52,8 +52,8 @@ function Deck(connection) {
     this.getTree = function(id, acc, callback) {
         //tail recursion which builds the deck tree, accumulating in acc
         
-        var deck = new Deck(connection);
-        var new_slide = new Slide(connection);
+        var deck = new Deck();
+        var new_slide = new Slide();
         deck.getTitle(id, function (title_str) {
             if (!title_str.error){
                 acc.title = title_str;
@@ -103,7 +103,7 @@ function Deck(connection) {
             if (err) callback({error : err});
             
             if (results.length){
-                var deck = new Deck(connection);
+                var deck = new Deck();
                 deck.getTree(results[0].id, {}, function(tree){ //getting number of slides
                     if (!tree.error){
                         var numberOfSlides = 0;
@@ -129,7 +129,7 @@ function Deck(connection) {
         //builds the list of all slides (ids) of the deck, including the slides from subdecks
         
         var slides = [];
-        var deck = new Deck(connection);
+        var deck = new Deck();
         deck.getTree(rev_id, {}, function(tree){
             if (!tree.error){
                 tree.children.forEach(function(child){
@@ -146,7 +146,7 @@ function Deck(connection) {
     
     this.getSlides = function(id, offset, limit, onlyIDs, callback){
         
-        var deck = new Deck(connection);
+        var deck = new Deck();
         var result = {};
         result.id = id;
         result.offset = offset;
@@ -162,7 +162,7 @@ function Deck(connection) {
                     slides.forEach(function(slide_id, index){
                         if (index+1 >= offset && index+1 <= offset + limit){ //while in the borders
                             if (onlyIDs === 'false'){ //get all metadata
-                                var new_slide = new Slide(connection);
+                                var new_slide = new Slide();
                                 new_slide.id = slide_id;
                                 new_slide.getMetadata(slide_id, function(metadata){
                                     if (metadata.error){
@@ -185,7 +185,7 @@ function Deck(connection) {
                     slides.forEach(function(slide_id, index){
                         if (index+1 >= offset){ //while in the borders
                             if (onlyIDs === 'false'){ //get all metadata
-                                var new_slide = new Slide(connection);
+                                var new_slide = new Slide();
                                 new_slide.id = slide_id;
                                 new_slide.getMetadata(slide_id, function(metadata){
                                     if (metadata.error){
@@ -215,7 +215,7 @@ function Deck(connection) {
     this.getContributors = function(rev_id, callback){
         //TODO: the user having different roles should be filtered?
         //TODO: translators
-        var deck = new Deck(connection);
+        var deck = new Deck();
         var contributors = [];
         var cbs = 0;
         var sql = 'SELECT users.id AS id, users.username AS username, users.picture AS avatar FROM deck_revision INNER JOIN users ON(deck_revision.user_id=users.id) WHERE ?? = ? LIMIT 1';
@@ -226,7 +226,7 @@ function Deck(connection) {
             if (!slide_ids.error){
                 slide_ids.forEach(function(slide_id){
                     cbs++;
-                    var new_slide = new Slide(connection);
+                    var new_slide = new Slide();
                     new_slide.getContributors(slide_id, [], function(slide_contributors){
                         if (slide_contributors.error){
                             callback(slide_contributors);
