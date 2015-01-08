@@ -13,7 +13,7 @@ function Slide(connection) {
         var inserts = ['slide_revision', 'id', rev_id];
         sql = mysql.format(sql, inserts);
         connection.query(sql, function(err, results) {
-            if (err) throw err;
+            if (err) callback({error : err});
             
             if (results.length){
                 if (results[0].title){
@@ -21,13 +21,16 @@ function Slide(connection) {
                 }else{
                     var slide = new Slide(connection);
                     slide.getContent(rev_id, function(content){
+                        if (content.error){
+                            callback(content);
+                        }
                         slide.setTitleFromContent(rev_id, content, function(title){
                             callback(title);
                         });
                     });
                 };  
             }else{
-                callback('Error: slide not found!');
+                callback({error : 'slide not found!'});
             }                          
         });
     };
@@ -39,12 +42,12 @@ function Slide(connection) {
         var inserts = ['slide_revision', 'id', rev_id];
         sql = mysql.format(sql, inserts);
         connection.query(sql, function(err, results) {
-            if (err) throw err;
+            if (err) callback({error : err});
             
             if (results.length){
                 callback(results[0].content);   
             }else{
-                callback('Error: slide not found!');
+                callback({error: 'slide not found!'});
             }                         
         });        
     };    
@@ -65,12 +68,12 @@ function Slide(connection) {
             var inserts_title = ['slide_revision', title, 'id', rev_id]; //set title field (only tags)
             sql_title = mysql.format(sql_title, inserts_title);
             connection.query(sql_title, function(err, results) {
-                    if (err) throw err;
+                    if (err) callback({error : err});
 
                     var inserts_content = ['slide_revision', content, 'id', rev_id]; //remove title from content
                         sql_content = mysql.format(sql_content, inserts_content);
                         connection.query(sql_content, function(err, results) {
-                            if (err) throw err;
+                            if (err) callback({error : err});
                     
                             callback(title);
                     });                    
@@ -79,7 +82,7 @@ function Slide(connection) {
             var inserts = ['slide_revision', 'Untitled', 'id', rev_id];
             sql = mysql.format(sql, inserts);
             connection.query(sql, function(err, results) {
-                if (err) throw err;
+                if (err) callback({error : err});
 
                 callback('Untitled');
             }); 
@@ -93,7 +96,7 @@ function Slide(connection) {
         var inserts = ['slide_revision.id', rev_id];
         sql = mysql.format(sql, inserts);
         connection.query(sql,function(err,results){
-            if (err) throw err;
+            if (err) callback({error : err});
             
             if (results.length){
                 var slide = new Slide(connection);
@@ -112,7 +115,7 @@ function Slide(connection) {
                     callback(contributors);
                 }    
             }else{
-                callback('Error: slide not found');   
+                callback({error: 'slide not found'});   
             }                    
         });
     };
@@ -124,7 +127,7 @@ function Slide(connection) {
         var tags = [];
         sql = mysql.format(sql, inserts);
         connection.query(sql,function(err,results){
-            if (err) throw err;
+            if (err) callback({error : err});
             
             if (results.length){
                 results.forEach(function(tag_object){
@@ -149,10 +152,12 @@ function Slide(connection) {
         var slide = new Slide(connection);
         sql = mysql.format(sql, inserts);
         connection.query(sql, function(err, results){
-            if (err) throw err;
+            if (err) callback({error : err});
             
             results.forEach(function(element){   //results = all ids of the slides   
                 slide.getTitle(element.id, function(title){ //for each id call the getTitle
+                    if (title.error) callback(title);
+                    
                     result.push(title);
                     if (result.length === results.length){
                         callback(result);
@@ -172,16 +177,18 @@ function Slide(connection) {
         var inserts = ['slide_revision', 'id', id];
         sql = mysql.format(sql, inserts);
         connection.query(sql, function(err, results) {
-            if (err) throw err;
+            if (err) callback({error : err});
             
             if (results.length){
                var slide = new Slide(connection);
                 slide.getTitle(id, function(title){
+                    if (title.error) callback(title);
+                    
                     results[0].title = title;
                     callback(results[0]);
                 }); 
             }else{
-                callback('Slide not found');
+                callback({error :'Slide not found'});
             }            
         });
     };

@@ -50,7 +50,7 @@ function start(){
                 if (parseInt(req.params.rev_id) > 0){
                     deck.getTree(req.params.rev_id, {}, function(tree) {res.json(tree);});
                 }else{
-                    res.json('Error: rev_id is not valid!');
+                    res.json({error : "rev_id is not valid!"});
                 }         		
 	});
         
@@ -59,7 +59,7 @@ function start(){
                 if (parseInt(req.params.rev_id) > 0){
                     deck.getMetadata(req.params.rev_id, function (metadata) {res.json(metadata);});
                 }else{
-                    res.json('Error: rev_id is not valid!');
+                    res.json({error : "rev_id is not valid!"});
                 }
            // }else{
             //    res.json('Error: rev_id is not set!');
@@ -70,7 +70,7 @@ function start(){
             if (parseInt(req.params.rev_id) > 0){
                 slide.getMetadata(req.params.rev_id, function(metadata) {res.json(metadata);});	
             }else{
-                res.json('Error: rev_id is not valid!');
+                res.json({error : "rev_id is not valid!"});
             }
 	});
         
@@ -89,10 +89,10 @@ function start(){
                         slide.getContributors(req.params.rev_id, [], function(contributors) {res.json(contributors);});
                         break;
                     default:
-                        res.json('Error: type of Content is not valid!');
+                        res.json({error : "content type is not valid!"});
                 }
             }else{
-                res.json('Error: rev_id is not valid!');
+                res.json({error : "rev_id is not valid!"});
             }
 	});
         
@@ -106,10 +106,10 @@ function start(){
                         slide.getTags(req.params.rev_id, function(tags) {res.json(tags);});
                         break;
                     default:
-                        res.json('Error: type of Content is not valid!');
+                        res.json({error : "content type is not valid!"});
                 } 
             }else{
-                res.json('Error: rev_id is not valid!');
+                res.json({error : "rev_id is not valid!"});
             }
 	});
         
@@ -121,7 +121,7 @@ function start(){
                     res.json('Error: onlyIDs parameter is not valid (should be true or false)!');
                 } 
             }else{
-                res.json('Error: rev_id and/or limit and/or offset is not valid!');
+                res.json({error : "rev_id and/or offset and/or limit is not valid!"});
             }
 	});
 	
