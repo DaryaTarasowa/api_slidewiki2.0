@@ -14,17 +14,21 @@ function Slide(connection) {
         sql = mysql.format(sql, inserts);
         connection.query(sql, function(err, results) {
             if (err) throw err;
-                
-            if (results[0].title){
-                callback(results[0].title);
-            }else{
-                var slide = new Slide(connection);
-                slide.getContent(rev_id, function(content){
-                    slide.setTitleFromContent(rev_id, content, function(title){
-                        callback(title);
+            
+            if (results.length){
+                if (results[0].title){
+                    callback(results[0].title);
+                }else{
+                    var slide = new Slide(connection);
+                    slide.getContent(rev_id, function(content){
+                        slide.setTitleFromContent(rev_id, content, function(title){
+                            callback(title);
+                        });
                     });
-                });
-            };                
+                };  
+            }else{
+                callback('Error: slide not found!');
+            }                          
         });
     };
     
@@ -36,7 +40,12 @@ function Slide(connection) {
         sql = mysql.format(sql, inserts);
         connection.query(sql, function(err, results) {
             if (err) throw err;
-            callback(results[0].content);                
+            
+            if (results.length){
+                callback(results[0].content);   
+            }else{
+                callback('Error: slide not found!');
+            }                         
         });        
     };    
     
@@ -86,21 +95,25 @@ function Slide(connection) {
         connection.query(sql,function(err,results){
             if (err) throw err;
             
-            var slide = new Slide(connection);
-            var based_on = results[0].based_on;
-            delete results[0].based_on;
-            if (based_on){      //this is not the first revision                 
-                results[0].role = 'contributor';                
-                contributors.push(results[0]);                    
-                slide.getContributors(based_on, contributors, function(result){
-                    callback(result);
-                });                                                              
-            }else{                
-                results[0].role = 'creator';
-                contributors.push(results[0]);                
-                contributors = lib.arrUnique(contributors);                          
-                callback(contributors);
-            }            
+            if (results.length){
+                var slide = new Slide(connection);
+                var based_on = results[0].based_on;
+                delete results[0].based_on;
+                if (based_on){      //this is not the first revision                 
+                    results[0].role = 'contributor';                
+                    contributors.push(results[0]);                    
+                    slide.getContributors(based_on, contributors, function(result){
+                        callback(result);
+                    });                                                              
+                }else{                
+                    results[0].role = 'creator';
+                    contributors.push(results[0]);                
+                    contributors = lib.arrUnique(contributors);                          
+                    callback(contributors);
+                }    
+            }else{
+                callback('Error: slide not found');   
+            }                    
         });
     };
     
@@ -146,6 +159,9 @@ function Slide(connection) {
                     }                    
                 });
             });
+            if (result.length === results.length){
+                callback(result);
+            }
         });
     };
     
@@ -158,12 +174,15 @@ function Slide(connection) {
         connection.query(sql, function(err, results) {
             if (err) throw err;
             
-            var slide = new Slide(connection);
-            slide.getTitle(id, function(title){
-                results[0].title = title;
-                callback(results[0]);
-            });       
-            
+            if (results.length){
+               var slide = new Slide(connection);
+                slide.getTitle(id, function(title){
+                    results[0].title = title;
+                    callback(results[0]);
+                }); 
+            }else{
+                callback('Slide not found');
+            }            
         });
     };
 }

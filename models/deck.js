@@ -39,11 +39,14 @@ function Deck(connection) {
         sql = mysql.format(sql, inserts);
             connection.query(sql, function(err, results) {
                 if (err) throw err;
-
-                callback(results[0].title);
+                
+                if (results.length){
+                    callback(results[0].title);
+                }else{
+                    callback('Deck not found!');
+                }                
             }); 
-        };
-        
+        };        
     
     this.getTree = function(id, acc, callback) {
         //tail recursion which builds the deck tree, accumulating in acc
@@ -90,17 +93,21 @@ function Deck(connection) {
         connection.query(sql, function(err, results) {
             if (err) throw err;
             
-            var deck = new Deck(connection);
-            deck.getTree(results[0].id, {}, function(tree){
-                var numberOfSlides = 0;
-                tree.children.forEach(function(child){ 
-                    deck.ifSlideThen(child, function(){
-                        numberOfSlides++;                       
-                    });                    
-                });
-                results[0].numberOfSlides = numberOfSlides;
-                callback(results[0]);
-            });            
+            if (results.length){
+                var deck = new Deck(connection);
+                deck.getTree(results[0].id, {}, function(tree){
+                    var numberOfSlides = 0;
+                    tree.children.forEach(function(child){ 
+                        deck.ifSlideThen(child, function(){
+                            numberOfSlides++;                       
+                        });                    
+                    });
+                    results[0].numberOfSlides = numberOfSlides;
+                    callback(results[0]);
+                });     
+            }else{
+                callback('Deck not found!');
+            }                   
         });
     };
     
@@ -131,10 +138,10 @@ function Deck(connection) {
         offset = parseInt(offset);
         limit = parseInt(limit);
         deck.getAllSlides(id, function(slides){
-            if (limit && limit+offset < slides.length){
+            if (limit && limit+offset < slides.length){ //limit is set and doesn't exceed the number of slides
                 slides.forEach(function(slide_id, index){
                     if (index+1 >= offset && index+1 <= offset + limit){ //while in the borders
-                        if (onlyIDs === 'false'){
+                        if (onlyIDs === 'false'){ //get all metadata
                             var new_slide = new Slide(connection);
                             new_slide.id = slide_id;
                             new_slide.getMetadata(slide_id, function(metadata){
@@ -143,7 +150,7 @@ function Deck(connection) {
                                     callback(result);
                                 }
                             });
-                        }else{
+                        }else{ //get only IDs
                             result.slides.push({'id' : slide_id});
                             if (index+2 === offset + limit){ //if reached the limit
                                 callback(result);
@@ -151,10 +158,10 @@ function Deck(connection) {
                         }                        
                     };
                 });     
-            }else{
+            }else{ //limit is 0 or exceed the number of slides
                 slides.forEach(function(slide_id, index){
                     if (index+1 >= offset){ //while in the borders
-                        if (onlyIDs === 'false'){
+                        if (onlyIDs === 'false'){ //get all metadata
                             var new_slide = new Slide(connection);
                             new_slide.id = slide_id;
                             new_slide.getMetadata(slide_id, function(metadata){
@@ -163,7 +170,7 @@ function Deck(connection) {
                                     callback(result);
                                 }
                             });
-                        }else{
+                        }else{ //get only IDS
                             result.slides.push({'id' : slide_id});
                             if (index+1 === slides.length){ //if reached the limit
                                 callback(result);
@@ -171,8 +178,7 @@ function Deck(connection) {
                         }
                     };
                 });
-            }
-                       
+            }                       
         });
     };
     
@@ -200,10 +206,14 @@ function Deck(connection) {
                         });
                         connection.query(sql,function(err,results){ //add deck_revision creator
                             if (err) throw err;
-
-                            results[0].role = 'creator';
-                            contributors.push(results[0]);
-                            callback(lib.arrUnique(contributors));
+                            
+                            if (results.length){
+                                results[0].role = 'creator';
+                                contributors.push(results[0]);
+                                callback(lib.arrUnique(contributors));
+                            }else{
+                                callback(lib.arrUnique(contributors));
+                            }                            
                         });
                     };
                 });                
