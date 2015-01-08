@@ -154,14 +154,21 @@ function Deck(connection) {
             }else{
                 slides.forEach(function(slide_id, index){
                     if (index+1 >= offset){ //while in the borders
-                        var new_slide = new Slide(connection);
-                        new_slide.id = slide_id;
-                        new_slide.getMetadata(slide_id, function(metadata){
-                            result.slides.push(metadata);
+                        if (onlyIDs === 'false'){
+                            var new_slide = new Slide(connection);
+                            new_slide.id = slide_id;
+                            new_slide.getMetadata(slide_id, function(metadata){
+                                result.slides.push(metadata);
+                                if (index+1 === slides.length){ //if reached the limit
+                                    callback(result);
+                                }
+                            });
+                        }else{
+                            result.slides.push({'id' : slide_id});
                             if (index+1 === slides.length){ //if reached the limit
                                 callback(result);
                             }
-                        });
+                        }
                     };
                 });
             }
