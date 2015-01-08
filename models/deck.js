@@ -106,7 +106,8 @@ function Deck(connection) {
     
        
     this.getAllSlides = function(rev_id, callback){
-        //tail recursion which builds the list of all slides (ids) of the deck, including the slides from subdecks
+        //builds the list of all slides (ids) of the deck, including the slides from subdecks
+        
         var slides = [];
         var deck = new Deck(connection);
         deck.getTree(rev_id, {}, function(tree){
@@ -119,7 +120,8 @@ function Deck(connection) {
         });
     };
     
-    this.getSlides = function(id, offset, limit, callback){
+    this.getSlides = function(id, offset, limit, onlyIDs, callback){
+        
         var deck = new Deck(connection);
         var result = {};
         result.id = id;
@@ -129,18 +131,41 @@ function Deck(connection) {
         offset = parseInt(offset);
         limit = parseInt(limit);
         deck.getAllSlides(id, function(slides){
-            slides.forEach(function(slide_id, index){
-                if (index+1 >= offset && index+1 <= offset + limit){ //while in the borders
-                    var new_slide = new Slide(connection);
-                    new_slide.id = slide_id;
-                    new_slide.getMetadata(slide_id, function(metadata){
-                        result.slides.push(metadata);
-                        if (index+2 === offset + limit){ //if reached the limit
-                            callback(result);
-                        }
-                    });
-                };
-            });            
+            if (limit && limit+offset < slides.length){
+                slides.forEach(function(slide_id, index){
+                    if (index+1 >= offset && index+1 <= offset + limit){ //while in the borders
+                        if (onlyIDs === 'false'){
+                            var new_slide = new Slide(connection);
+                            new_slide.id = slide_id;
+                            new_slide.getMetadata(slide_id, function(metadata){
+                                result.slides.push(metadata);
+                                if (index+2 === offset + limit){ //if reached the limit
+                                    callback(result);
+                                }
+                            });
+                        }else{
+                            result.slides.push({'id' : slide_id});
+                            if (index+2 === offset + limit){ //if reached the limit
+                                callback(result);
+                            }
+                        }                        
+                    };
+                });     
+            }else{
+                slides.forEach(function(slide_id, index){
+                    if (index+1 >= offset){ //while in the borders
+                        var new_slide = new Slide(connection);
+                        new_slide.id = slide_id;
+                        new_slide.getMetadata(slide_id, function(metadata){
+                            result.slides.push(metadata);
+                            if (index+1 === slides.length){ //if reached the limit
+                                callback(result);
+                            }
+                        });
+                    };
+                });
+            }
+                       
         });
     };
     

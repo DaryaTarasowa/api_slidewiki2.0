@@ -1,0 +1,17 @@
+var mysql = require('mysql');
+
+function Config(){
+    
+    this.port = process.env.PORT || 8080;
+    
+    this.connection = mysql.createConnection({
+		host            : 'localhost',
+		database        : 'slidewiki',
+		user            : 'slidewiki',
+		password        : 'sw123'
+    });
+}
+
+module.exports = Config;
+
+

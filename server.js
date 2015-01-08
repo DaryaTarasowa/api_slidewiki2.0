@@ -4,7 +4,8 @@ var bodyParser = require('body-parser');
 var mysql = require('mysql');
 var Deck = require('./models/deck');
 var Slide = require('./models/slide');
-		
+var Config = require('./config');
+var config = new Config();
 
 		
 function start(){
@@ -17,17 +18,12 @@ function start(){
 		extended: true
 	}));
 
-
+        
 	// Use environment defined port or 8080
-	var port = process.env.PORT || 8080;
+	var port = config.port;
 	
 	//connect to mysql
-	var connection  = mysql.createConnection({
-		host            : 'localhost',
-		database        : 'slidewiki',
-		user            : 'slidewiki',
-		password        : 'sw123'
-	});
+	var connection  = config.connection;
 		
 	connection.connect(function(err) {
 		if (err) {
@@ -97,12 +93,16 @@ function start(){
                     slide.getTags(req.params.rev_id, function(tags) {res.json(tags);});
                     break;
                 default:
-                    res.json('Error: type of Content is not defined!');
+                    res.json('Error: type of Content is not valid!');
             } 				
 	});
         
-        router.get('/deck/slides/:id/offset/:offset/limit/:limit', function(req, res) {            
-            deck.getSlides(req.params.id, req.params.offset, req.params.limit, function(slides){res.json(slides);});			
+        router.get('/deck/slides/:id/offset/:offset/limit/:limit/:onlyIDs', function(req, res) {
+            if (req.params.onlyIDs === 'true' || req.params.onlyIDs === 'false'){
+                deck.getSlides(req.params.id, req.params.offset, req.params.limit, req.params.onlyIDs, function(slides){res.json(slides);});
+            }else{
+                res.json('Error: onlyIDs parameter is not valid (should be true or false)!');
+            }            			
 	});
 	
 	// Register all our routes with /api
