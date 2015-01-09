@@ -43,7 +43,7 @@ function start(){
 	
 		
 	router.route('/deck/tree/:rev_id')
-            .get(authController.isAuthenticated, deckController.getTree);
+            .get(deckController.getTree);
         
         router.get('/deck/:rev_id', function(req, res) {
             if (parseInt(req.params.rev_id) > 0){

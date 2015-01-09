@@ -2,7 +2,6 @@
   "name": "slidewiki",
   "main": "index.js",
   "dependencies": {
-    "bcrypt-nodejs": "0.0.3",
     "body-parser": "^1.10.0",
     "crypto": "0.0.3",
     "dnode": "^1.2.0",

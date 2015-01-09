@@ -1,5 +1,5 @@
 var mysql = require('mysql');
-var md5 = require('MD5');
+var crypto = require('crypto');
 var salt = 'slidewikisalt';
 var connection = require('../config').connection;
 
@@ -31,7 +31,7 @@ function User(){
             
             if (results.length){
                 var password_db = results[0].password;
-                var hash = md5(password + salt);
+                var hash = crypto.createHash('md5').update(password + salt).digest('hex');
                 if (password_db === hash){
                     callback(null, true);
                 }else{
