@@ -1,0 +1,3 @@
+ALTER TABLE slidewiki.slide_revision
+  ADD title varchar(40) NULL
+    AFTER id;

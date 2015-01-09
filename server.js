@@ -9,6 +9,9 @@ var User = require('./models/user');
 var authController = require('./controllers/auth');
 var deckController = require('./controllers/deck');
 var connection = require('./config').connection;
+var clientController = require('./controllers/client');
+var mongoose = require('mongoose');
+
 
 		
 function start(){
@@ -25,6 +28,7 @@ function start(){
 	
 	var port = require('./config').port;
 	
+        //mysql connection
 	connection.connect(function(err) {
 		if (err) {
 			console.error('error connecting: ' + err.stack);
@@ -33,6 +37,11 @@ function start(){
 
 		console.log('connected as id ' + connection.threadId);
 	});
+        
+        //mongodb connection
+        //mongoose.connect('mongodb://localhost:27017/slidewiki');
+
+        
         var deck = new Deck();
         var slide = new Slide();
         var user = new User();
@@ -137,6 +146,13 @@ function start(){
                 res.json({error : "rev_id and/or offset and/or limit is not valid!"});
             }
 	});
+        
+        router.route('/clients')
+            .get(authController.isAuthenticated, clientController.getClients)
+            .post(authController.isAuthenticated, clientController.postClients);
+            //.get(authController.isAuthenticated, clientController.getClients);
+                    
+
 	
 	// Register all our routes with /api
 	app.use('/api', router);

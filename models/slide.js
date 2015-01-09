@@ -79,7 +79,7 @@ function Slide() {
             }); 
         }else{ //no title is set in the content or empty title
             var inserts = ['slide_revision', 'Untitled', 'id', rev_id];
-            sql = mysql.format(sql, inserts);
+            sql = mysql.format(sql_title, inserts);
             connection.query(sql, function(err, results) {
                 if (err) callback({error : err});
 
