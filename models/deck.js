@@ -54,6 +54,7 @@ function Deck() {
         
         var deck = new Deck();
         var new_slide = new Slide();
+        var new_children = [];
         deck.getTitle(id, function (title_str) {
             if (!title_str.error){
                 acc.title = title_str;
@@ -66,25 +67,36 @@ function Deck() {
                         if (child.type === 'deck'){
                             deck.getTree(child.id, child, function(child_child){//get the tree for a child
                                 acc.children[child_child.position - 1] = child_child;
-                                var size = acc.children.filter(function(value) { return value !== null }).length;
-                                if (size === children.length){
+                                new_children = acc.children.filter(function(value) { return value !== null });
+                                if(new_children.length === children.length) {
+                                    acc.children = new_children;
                                     callback(acc);
                                 }
                             });                            
                         }
                         else{ 
                             new_slide.getTitle(child.id, function(title_str){
-                                child.title = title_str;
-                                acc.children[child.position - 1] = child;
-                                var size = acc.children.filter(function(value) { return value !== null }).length;
-                                if(size === children.length) {
-                                    callback(acc);
-                                }
+                                if (!title_str.error){
+                                    child.title = title_str;
+                                    acc.children[child.position - 1] = child;
+                                    new_children = acc.children.filter(function(value) { return value !== null });
+                                    if(new_children.length === children.length) {
+                                        acc.children = new_children;
+                                        callback(acc);
+                                    }
+                                }else{
+                                    new_children = acc.children.filter(function(value) { return value !== null });
+                                    if(new_children.length === children.length) {
+                                        acc.children = new_children;
+                                        callback(acc);
+                                    }
+                                }                                
                             });                            
                         }
                     });
-                    var size = acc.children.filter(function(value) { return value !== null }).length;
-                    if(size === children.length) {
+                    new_children = acc.children.filter(function(value) { return value !== null });
+                    if(new_children.length === children.length) {
+                        acc.children = new_children;
                         callback(acc);
                     }
                 });
