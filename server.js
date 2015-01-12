@@ -7,8 +7,10 @@ var authController = require('./controllers/auth');
 var deckController = require('./controllers/deck');
 var slideController = require('./controllers/slide');
 var userController = require('./controllers/user');
-var connection = require('./config').connection;
 var clientController = require('./controllers/client');
+var scriptsController = require('./controllers/scripts');
+var connection = require('./config').connection;
+
 var mongoose = require('mongoose');
 
 
@@ -63,10 +65,8 @@ function start(){
         router.route('/user/login/:username/:pass')
                 .get(userController.verifyPassword);
         
-        router.get('/scripts/slide/setAllTitles', function(req, res) {
-            
-            slide.setAllTitles(function(response) {res.json(response);});		
-	});
+        router.route('/scripts/setAllTitles')
+                .get(scriptsController.setAllTitles);
         
         router.route('/content/contributors/deck/:rev_id')
                 .get(deckController.getContributors);

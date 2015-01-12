@@ -1,5 +1,4 @@
 var Slide = require('../models/slide');
-var connection = require('../config').connection;
 var slide = new Slide();
 
 exports.getMetadata = function(req, res) {		

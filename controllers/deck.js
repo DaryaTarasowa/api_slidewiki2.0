@@ -1,5 +1,4 @@
 var Deck = require('../models/deck');
-var connection = require('../config').connection;
 var deck = new Deck();
 
 exports.getTree = function(req, res) {

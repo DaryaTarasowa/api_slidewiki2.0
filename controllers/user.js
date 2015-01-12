@@ -1,5 +1,4 @@
 var User = require('../models/user');
-var connection = require('../config').connection;
 var user = new User();
 
 exports.getMetadata = function(req, res) {		
