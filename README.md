@@ -11,6 +11,7 @@ Installation guide
 6. Install MongoDB7. 
 6. Copy the config.example file as config.js; adjust the settings for database connection
 7. In nodeJS command line, start the application: node index.js (nodemon index.js)
+8. Change MySql schema (in the root, sql_update.txt)
 8. Set up titles (in slide_revision): /scripts/setAllTitles
 8. Convert MYSQL to MongoDB: /scripts/convert
 9. Use it!
