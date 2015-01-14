@@ -1,6 +1,7 @@
 var mysql = require('mysql');
 var lib = require('./library');
 var connection = require('../config').connection;
+var Muser = require('../models/muser');
 
 // Constructor
 function Slide() {
@@ -91,7 +92,7 @@ function Slide() {
     this.getContributors = function(rev_id, contributors, callback){
         //TODO: the user having different roles should be filtered?
         //TODO: translators
-        var sql = 'SELECT users.id AS id, users.username AS username, users.picture AS avatar, slide_revision.based_on AS based_on FROM slide_revision INNER JOIN users ON(slide_revision.user_id=users.id) WHERE ?? = ? LIMIT 1';
+        var sql = 'SELECT users.username AS username, slide_revision.based_on AS based_on FROM slide_revision INNER JOIN users ON(slide_revision.user_id=users.id) WHERE ?? = ? LIMIT 1';
         var inserts = ['slide_revision.id', rev_id];
         sql = mysql.format(sql, inserts);
         connection.query(sql,function(err,results){
@@ -101,17 +102,31 @@ function Slide() {
                 var slide = new Slide(connection);
                 var based_on = results[0].based_on;
                 delete results[0].based_on;
-                if (based_on){      //this is not the first revision                 
-                    results[0].role = 'contributor';                
+                if (based_on){      //this is not the first revision
                     contributors.push(results[0]);                    
                     slide.getContributors(based_on, contributors, function(result){
                         callback(result);
                     });                                                              
-                }else{                
-                    results[0].role = 'creator';
+                }else{ 
                     contributors.push(results[0]);                
                     contributors = lib.arrUnique(contributors);                          
-                    callback(contributors);
+                    contributors.forEach(function(user, index){
+                        var query = Muser.findOne({username : user.username});
+                        query.select('avatar username registered');
+    
+                        query.exec(function (err, muser) {
+                            muser.role = [];
+                            muser.role.push('contributor');
+                            if (muser.username === results[0].username){
+                                muser.role.push('creator');
+                            }
+                            contributors[index] = muser;
+
+                            if (index === contributors.length -1 ){
+                                callback(contributors);
+                            }                            
+                        });
+                    })
                 }    
             }else{
                 callback({error: 'slide not found'});   

@@ -2,6 +2,7 @@ var mysql = require('mysql');
 var Slide = require('./slide');
 var lib = require('./library');
 var connection = require('../config').connection;
+var Muser = require('../models/muser');
 
 function Deck() {
     
@@ -230,7 +231,7 @@ function Deck() {
         var deck = new Deck();
         var contributors = [];
         var cbs = 0;
-        var sql = 'SELECT users.id AS id, users.username AS username, users.picture AS avatar FROM deck_revision INNER JOIN users ON(deck_revision.user_id=users.id) WHERE ?? = ? LIMIT 1';
+        var sql = 'SELECT users.username AS username FROM deck_revision INNER JOIN users ON(deck_revision.user_id=users.id) WHERE ?? = ? LIMIT 1';
         var inserts = ['deck_revision.id', rev_id];
         sql = mysql.format(sql, inserts);
         
@@ -246,17 +247,31 @@ function Deck() {
                         contributors = contributors.concat(slide_contributors); //merge contributors from slides
                         cbs--;
                         if (cbs === 0){
-                            contributors = lib.arrUnique(contributors); //unique
-                            contributors.forEach(function(user, index){
-                                contributors[index].role = 'contributor'; //change roles from slides to contributors
+                            contributors.forEach(function(user,index){
+                                contributors[index].role = [];
                             });
+                            contributors = lib.arrUnique(contributors); //unique
+                           
                             connection.query(sql,function(err,results){ //add deck_revision creator
                                 if (err) callback({error : err});
 
                                 if (results.length){
-                                    results[0].role = 'creator';
-                                    contributors.push(results[0]);
-                                    callback(lib.arrUnique(contributors));
+                                    contributors.forEach(function(user, index){
+                                        var query = Muser.findOne({username : user.username});
+                                        query.select('avatar username registered');
+
+                                        query.exec(function (err, muser) {
+                                            muser.role = [];
+                                            muser.role.push('contributor');
+                                            if (muser.username === results[0].username){
+                                                muser.role.push('creator');
+                                            }
+                                            contributors[index] = muser;
+                                            if (index === contributors.length -1){
+                                                callback(contributors);
+                                            }                            
+                                        });
+                                    })                                   
                                 }else{
                                     callback(lib.arrUnique(contributors));
                                 }                            

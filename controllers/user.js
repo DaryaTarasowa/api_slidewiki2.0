@@ -1,5 +1,7 @@
 var User = require('../models/user');
 var user = new User();
+var Muser = require('../models/muser');
+
 
 exports.getMetadata = function(req, res) {		
     if (parseInt(req.params.id) > 0){
@@ -26,4 +28,7 @@ exports.verifyPassword = function(req, res) {
         res.json({error : "id is not valid!"});
     }
 };
+
+
+
 

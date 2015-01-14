@@ -29,7 +29,7 @@ var _ = require('underscore');
         arr.forEach(function(itm) {
             var unique = true;
             cleaned.forEach(function(itm2) {
-                if (_.isEqual(itm, itm2)) unique = false;
+                if (JSON.stringify(itm) === JSON.stringify(itm2)) unique = false;
             });
             if (unique)  cleaned.push(itm);
         });
