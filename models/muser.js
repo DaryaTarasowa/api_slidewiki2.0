@@ -66,17 +66,6 @@ MuserSchema.pre('save', function(callback) {
     });
 });
 
-MuserSchema.methods.getMetadata = function(sql_id, callback){
-    
-    var query = this.findOne({ sql_id : sql_id });
-    query.select('_id sql_id avatar username registered');
-    
-    query.exec(function (err, user) {
-        if (err) return handleError(err);
-        callback(user);
-    });
-};
-
 MuserSchema.methods.verifyPassword = function(password, callback) {
     var hash = crypto.createHash('md5').update(password + salt).digest('hex');
     bcrypt.compare(hash, this.password, function(err, isMatch) {

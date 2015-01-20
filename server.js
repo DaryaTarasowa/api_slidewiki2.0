@@ -13,6 +13,8 @@ var deckController = require('./controllers/deck');
 var slideController = require('./controllers/slide');
 var userController = require('./controllers/user');
 var muserController = require('./controllers/muser');
+var mdeckController = require('./controllers/mdeck');
+var mslideController = require('./controllers/mslide');
 var clientController = require('./controllers/client');
 var scriptsController = require('./controllers/scripts');
 var oauth2Controller = require('./controllers/oauth2');
@@ -64,10 +66,10 @@ function start(){
 	var router = express.Router();
 		
 	router.route('/deck/tree/:rev_id')
-                .get(deckController.getTree);
+                .get(mdeckController.getTree);
         
         router.route('/deck/:rev_id')
-                .get(deckController.getMetadata);
+                .get(mdeckController.getMetadata);
         
         router.route('/slide/:rev_id')
                 .get(slideController.getMetadata);
@@ -98,6 +100,13 @@ function start(){
         router.route('/users')
             .get(muserController.getUsers)
             .post(muserController.postUsers);
+    
+        router.route('/decks')
+            .get(mdeckController.getDecks);
+            //.post(muserController.postUsers);
+            
+        router.route('/slides')
+            .get(mslideController.getSlides);
             
         // Create endpoint handlers for oauth2 authorize
         router.route('/oauth2/authorize')
