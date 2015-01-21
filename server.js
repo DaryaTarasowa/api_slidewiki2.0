@@ -58,8 +58,6 @@ function start(){
         
         //mongodb connection
         mongoose.connect('mongodb://localhost:27017/slidewiki');
-
-        
         
 
 	// Create Express router
@@ -71,17 +69,20 @@ function start(){
         router.route('/deck/:rev_id')
                 .get(mdeckController.getMetadata);
         
+        router.route('/getAllSlides/:rev_id')
+                .get(mdeckController.getAllSlides);
+        
         router.route('/slide/:rev_id')
-                .get(slideController.getMetadata);
+                .get(mslideController.getMetadata);
         
         router.route('/user/:id')
                 .get(muserController.getMetadata);
         
         router.route('/content/contributors/deck/:rev_id')
-                .get(deckController.getContributors);
-        
+                .get(mdeckController.getContributors);
+               
         router.route('/content/contributors/slide/:rev_id')
-                .get(slideController.getContributors);
+                .get(mslideController.getContributors);
         
         router.route('/content/tags/deck/:rev_id')
                 .get(deckController.getTags);
@@ -113,9 +114,7 @@ function start(){
           .get(authController.isAuthenticated, oauth2Controller.authorization)
           .post(authController.isAuthenticated, oauth2Controller.decision);
 
-        // Create endpoint handlers for oauth2 token
-        router.route('/oauth2/token')
-          .post(authController.isClientAuthenticated, oauth2Controller.token);
+        
 
   
         

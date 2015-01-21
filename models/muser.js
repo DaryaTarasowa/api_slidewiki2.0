@@ -17,7 +17,7 @@ var MuserSchema = new mongoose.Schema({
         required: true
     },
     sql_id: {
-        type: String,
+        type: Number,
         unique: false,
         required: false
     },

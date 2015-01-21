@@ -81,29 +81,18 @@ exports.convertUsers = function(callback){
                                 });
                                 if(tags.length === deck.tags.length){
                                     
-                                    var query = Muser.findOne({ sql_id : deck.user_id});
-                                    query.select('_id');
                                     
-                                    query.exec(function saveDeck(err, user) {
-                                        if (err) callback(err);
-                                        
-                                        if (user){
-                                            deck.user = user._id;
-                                            var new_deck = new Mdeck(deck);
+                                    var new_deck = new Mdeck(deck);
 
-                                            new_deck.save(function(err) {
-                                                if (err) console.log(err);
+                                    new_deck.save(function(err) {
+                                        if (err) console.log(err);
 
-                                                if (index === count_db-1){
-                                                    callback({ message: 'Converting has been finished!' });
-                                                }
-
-                                            });
+                                        if (index === count_db-1){
+                                            callback({ message: 'Converting has been finished!' });
                                         }
-                                        
+
                                     });
                                 }
-                                
                             })
                         })
                     });
@@ -126,34 +115,16 @@ exports.convertUsers = function(callback){
             var count_db = results.length;
             if (count_db){
                 mongoose.connection.collections['mslides'].drop( function(err) { //drop collection
-                    results.forEach(function(slide, index){
-                        var query = Muser.findOne({ sql_id : slide.user_id});
-                        query.select('_id');
-                        
-                        var query2 = Muser.findOne({ sql_id : slide.translator_id});
-                        query2.select('_id');
-
-                        query.exec(function saveSlide(err, user) {
-                            if (err) callback(err);
-                            
-                            query2.exec(function saveSlide2(err, translator){
-                                if (translator){
-                                    slide.translator = translator._id;
-                                }
-                                if (user){
-                                    slide.user = user._id;                         
+                    results.forEach(function(slide, index){                                                 
                                 
-                                    var new_slide = new Mslide(slide);
+                        var new_slide = new Mslide(slide);
 
-                                    new_slide.save(function(err) {
-                                        if (err) console.log(err);
+                        new_slide.save(function(err) {
+                            if (err) console.log(err);
 
-                                        if (index === count_db-1){
-                                            callback('Done');
-                                        }
-                                    });
-                                }
-                            });
+                            if (index === count_db-1){
+                                callback('Done');
+                            }
                         });
                     });
                 });

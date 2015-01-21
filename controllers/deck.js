@@ -45,6 +45,12 @@ exports.getSlides = function(req, res) {
     }
 };
 
+exports.getAllSlides = function(req, res){
+    deck.getAllSlides(req.params.rev_id, function(response){
+        res.json(response);
+    })
+}
+
 
 
 

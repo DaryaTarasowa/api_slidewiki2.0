@@ -12,12 +12,12 @@ exports.setAllTitles = function(req, res) {
 
 exports.convert = function(req, res) {
     convertion.convertUsers(function(response1) {
-        async.parallel([
-            convertion.convertDecks,
-            convertion.convertSlides
-        ], function(response){
-            res.json('done');
-        });
+        convertion.convertDecks(function(response2){
+            convertion.convertSlides(function(response3){
+                res.json(response1 + ' ' + response2 + ' ' + response3);
+            });
+        });            
+        
     });
 //convertion.convertSlides(function(response){
 //    res.json(response);
