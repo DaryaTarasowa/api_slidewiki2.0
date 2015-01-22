@@ -1,7 +1,7 @@
 var mysql = require('mysql');
 var lib = require('./library');
 var connection = require('../config').connection;
-var Muser = require('../models/muser');
+var User = require('../models/user');
 
 // Constructor
 function Slide() {
@@ -109,18 +109,20 @@ function Slide() {
                     });                                                              
                 }else{ 
                     contributors.push(results[0]);                
-                    contributors = lib.arrUnique(contributors);                          
+                    contributors = lib.arrUnique(contributors);
+                    var sql = 'SELECT picture AS avatar, username, registered FROM ? WHERE username = ? LIMIT 1';
                     contributors.forEach(function(user, index){
-                        var query = Muser.findOne({username : user.username});
-                        query.select('avatar username registered');
-    
-                        query.exec(function (err, muser) {
-                            muser.role = [];
-                            muser.role.push('contributor');
-                            if (muser.username === results[0].username){
-                                muser.role.push('creator');
+                        
+                        var inserts = ['users', user.username];
+                        sql = mysql.format(sql, inserts);
+                        connection.query(sql,function(err,new_user){   
+                        
+                            new_user.role = [];
+                            new_user.role.push('contributor');
+                            if (new_user.username === results[0].username){
+                                new_user.role.push('creator');
                             }
-                            contributors[index] = muser;
+                            contributors[index] = new_user;
 
                             if (index === contributors.length -1 ){
                                 callback(contributors);

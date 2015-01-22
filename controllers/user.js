@@ -1,6 +1,6 @@
 var User = require('../models/user');
 var user = new User();
-var Muser = require('../models/muser');
+
 
 
 exports.getMetadata = function(req, res) {		

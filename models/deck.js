@@ -2,7 +2,7 @@ var mysql = require('mysql');
 var Slide = require('./slide');
 var lib = require('./library');
 var connection = require('../config').connection;
-var Muser = require('../models/muser');
+var User = require('../models/user');
 
 function Deck() {
     
@@ -256,18 +256,20 @@ function Deck() {
                                 if (err) callback({error : err});
 
                                 if (results.length){
+                                    var sql = 'SELECT picture AS avatar, username, registered FROM ? WHERE username = ? LIMIT 1';
                                     contributors.forEach(function(user, index){
-                                        var query = Muser.findOne({username : user.username});
-                                        query.select('avatar username registered');
+                                        var inserts = ['users', user.username];
+                                        sql = mysql.format(sql, inserts);
+                                        connection.query(sql,function(err,new_user){   
 
-                                        query.exec(function (err, muser) {
-                                            muser.role = [];
-                                            muser.role.push('contributor');
-                                            if (muser.username === results[0].username){
-                                                muser.role.push('creator');
+                                            new_user.role = [];
+                                            new_user.role.push('contributor');
+                                            if (new_user.username === results[0].username){
+                                                new_user.role.push('creator');
                                             }
-                                            contributors[index] = muser;
-                                            if (index === contributors.length -1){
+                                            contributors[index] = new_user;
+
+                                            if (index === contributors.length -1 ){
                                                 callback(contributors);
                                             }                            
                                         });

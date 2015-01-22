@@ -2,7 +2,7 @@ var mysql = require('mysql');
 var crypto = require('crypto');
 var salt = 'slidewikisalt';
 var connection = require('../config').connection;
-var mongoose = require('mongoose');
+
 
 
 function User(){
