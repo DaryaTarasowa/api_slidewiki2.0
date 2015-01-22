@@ -92,7 +92,7 @@ function Slide() {
     this.getContributors = function(rev_id, contributors, callback){
         //TODO: the user having different roles should be filtered?
         //TODO: translators
-        var sql = 'SELECT users.username AS username, slide_revision.based_on AS based_on FROM slide_revision INNER JOIN users ON(slide_revision.user_id=users.id) WHERE ?? = ? LIMIT 1';
+        var sql = 'SELECT users.username AS username, picture AS avatar, registered, slide_revision.based_on AS based_on FROM slide_revision INNER JOIN users ON(slide_revision.user_id=users.id) WHERE ?? = ? LIMIT 1';
         var inserts = ['slide_revision.id', rev_id];
         sql = mysql.format(sql, inserts);
         connection.query(sql,function(err,results){
@@ -110,25 +110,19 @@ function Slide() {
                 }else{ 
                     contributors.push(results[0]);                
                     contributors = lib.arrUnique(contributors);
-                    var sql = 'SELECT picture AS avatar, username, registered FROM ? WHERE username = ? LIMIT 1';
                     contributors.forEach(function(user, index){
-                        
-                        var inserts = ['users', user.username];
-                        sql = mysql.format(sql, inserts);
-                        connection.query(sql,function(err,new_user){   
-                        
-                            new_user.role = [];
-                            new_user.role.push('contributor');
-                            if (new_user.username === results[0].username){
-                                new_user.role.push('creator');
-                            }
-                            contributors[index] = new_user;
+                            
+                        user.role = [];
+                        user.role.push('contributor');
+                        if (user.username === results[0].username){
+                            user.role.push('creator');
+                        }
+                        contributors[index] = user;
 
-                            if (index === contributors.length -1 ){
-                                callback(contributors);
-                            }                            
-                        });
-                    })
+                        if (index === contributors.length -1 ){
+                            callback(contributors);
+                        }                            
+                    });
                 }    
             }else{
                 callback({error: 'slide not found'});   
