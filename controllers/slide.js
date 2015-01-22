@@ -1,5 +1,4 @@
-var Slide = require('../models/slide');
-var slide = new Slide();
+var slide = require('../models/slide');
 
 exports.getMetadata = function(req, res) {		
     if (parseInt(req.params.rev_id) > 0){

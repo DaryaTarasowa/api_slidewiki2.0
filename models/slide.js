@@ -1,12 +1,9 @@
 var mysql = require('mysql');
 var lib = require('./library');
 var connection = require('../config').connection;
-var User = require('../models/user');
 
 // Constructor
-function Slide() {
-    
-    this.getTitle = function(rev_id, callback){
+exports.getTitle = function(rev_id, callback){
         //gets the title either from title field or parsing the content, returns the cb(title)
         
         var sql = "SELECT title FROM ?? WHERE ?? = ? LIMIT 1";
@@ -19,12 +16,11 @@ function Slide() {
                 if (results[0].title){
                     callback(results[0].title);
                 }else{
-                    var slide = new Slide();
-                    slide.getContent(rev_id, function(content){
+                    exports.getContent(rev_id, function(content){
                         if (content.error){
                             callback(content);
                         }
-                        slide.setTitleFromContent(rev_id, content, function(title){
+                        exports.setTitleFromContent(rev_id, content, function(title){
                             callback(title);
                         });
                     });
@@ -35,7 +31,7 @@ function Slide() {
         });
     };
     
-    this.getContent = function(rev_id, callback){
+    exports.getContent = function(rev_id, callback){
         //gets the content of a slide, returns the cb of content
         
         var sql = "SELECT content FROM ?? WHERE ?? = ? LIMIT 1";
@@ -52,7 +48,7 @@ function Slide() {
         });        
     };    
     
-    this.setTitleFromContent = function(rev_id, content, callback){
+    exports.setTitleFromContent = function(rev_id, content, callback){
         //sets the title field in the content parsing the content, returns the cb of set title
         
         var patt = new RegExp(/<h2(.*?)>(.*?)<\/( *?)h2>/);
@@ -89,7 +85,7 @@ function Slide() {
         }        
     };
     
-    this.getContributors = function(rev_id, contributors, callback){
+    exports.getContributors = function(rev_id, contributors, callback){
         //TODO: the user having different roles should be filtered?
         //TODO: translators
         var sql = 'SELECT users.username AS username, picture AS avatar, registered, slide_revision.based_on AS based_on FROM slide_revision INNER JOIN users ON(slide_revision.user_id=users.id) WHERE ?? = ? LIMIT 1';
@@ -99,12 +95,11 @@ function Slide() {
             if (err) callback({error : err});
             
             if (results.length){
-                var slide = new Slide(connection);
                 var based_on = results[0].based_on;
                 delete results[0].based_on;
                 if (based_on){      //this is not the first revision
                     contributors.push(results[0]);                    
-                    slide.getContributors(based_on, contributors, function(result){
+                    exports.getContributors(based_on, contributors, function(result){
                         callback(result);
                     });                                                              
                 }else{ 
@@ -130,7 +125,7 @@ function Slide() {
         });
     };
     
-    this.getTags = function(rev_id, callback){
+    exports.getTags = function(rev_id, callback){
             
         var sql = 'SELECT tag FROM tag WHERE ?? = ? AND item_type = "slide"';
         var inserts = ['item_id', rev_id];
@@ -153,19 +148,18 @@ function Slide() {
         });
     };
     
-    this.setAllTitles = function(callback){
+    exports.setAllTitles = function(callback){
         //sets all titles in the database parsing the content, returns the set of all titles
         
         var result = [];
         var sql = "SELECT id FROM ?? WHERE 1";
         var inserts = ['slide_revision'];
-        var slide = new Slide();
         sql = mysql.format(sql, inserts);
         connection.query(sql, function(err, results){
             if (err) callback({error : err});
             
             results.forEach(function(element){   //results = all ids of the slides   
-                slide.getTitle(element.id, function(title){ //for each id call the getTitle
+                exports.getTitle(element.id, function(title){ //for each id call the getTitle
                     if (title.error) callback(title);
                     
                     result.push(title);
@@ -180,7 +174,7 @@ function Slide() {
         });
     };
     
-    this.getMetadata = function(id, callback){
+    exports.getMetadata = function(id, callback){
         //gets metadata of a slide
         
         var sql = "SELECT id, timestamp AS created_at, content AS body FROM ?? WHERE ?? = ? LIMIT 1";
@@ -190,8 +184,7 @@ function Slide() {
             if (err) callback({error : err});
             
             if (results.length){
-               var slide = new Slide();
-                slide.getTitle(id, function(title){
+                exports.getTitle(id, function(title){
                     if (title.error) callback(title);
                     
                     results[0].title = title;
@@ -202,6 +195,6 @@ function Slide() {
             }            
         });
     };
-}
 
-module.exports = Slide;
+
+

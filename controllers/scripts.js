@@ -1,7 +1,5 @@
-var Slide = require('../models/slide');
-var slide = new Slide();
-var User = require('../models/user');
-var user = new User();
+var slide = require('../models/slide');
+
 
 
 exports.setAllTitles = function(req, res) {

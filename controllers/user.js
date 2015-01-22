@@ -1,5 +1,4 @@
-var User = require('../models/user');
-var user = new User();
+var user = require('../models/user');
 
 
 

@@ -1,5 +1,4 @@
-var Deck = require('../models/deck');
-var deck = new Deck();
+var deck = require('../models/deck');
 
 exports.getTree = function(req, res) {
     if (parseInt(req.params.rev_id) > 0){

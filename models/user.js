@@ -5,9 +5,9 @@ var connection = require('../config').connection;
 
 
 
-function User(){
+
     
-    this.getMetadata = function(id, callback){
+    exports.getMetadata = function(id, callback){
         var sql = "SELECT id, username, registered, picture FROM ?? WHERE ?? = ? LIMIT 1";
         var inserts = ['users', 'id', id];
         sql = mysql.format(sql, inserts);
@@ -23,7 +23,7 @@ function User(){
         });
     };
     
-    this.verifyPassword = function(username, password, callback) {
+    exports.verifyPassword = function(username, password, callback) {
         var sql = "SELECT password FROM ?? WHERE ?? = ? LIMIT 1";
         var inserts = ['users', 'username', username];
         sql = mysql.format(sql, inserts);
@@ -46,7 +46,7 @@ function User(){
         
     };
     
-    this.getID = function(username, callback){
+    exports.getID = function(username, callback){
         var sql = "SELECT id FROM ?? WHERE ?? = ? LIMIT 1";
         var inserts = ['users', 'username', username];
         sql = mysql.format(sql, inserts);
@@ -61,7 +61,3 @@ function User(){
             }
         });
     };
-        
-}   
-  
-module.exports = User;

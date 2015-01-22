@@ -1,11 +1,10 @@
 var passport = require('passport');
 var BasicStrategy = require('passport-http').BasicStrategy;
-var User = require('../models/user');
+var user = require('../models/user');
 
 
 passport.use(new BasicStrategy(
     function(username, password, callback) {
-        var user = new User();
         user.verifyPassword(username, password, function(err, isMatch){
             if (err) { return callback(err); }
 
