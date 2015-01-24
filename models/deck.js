@@ -25,6 +25,7 @@ var user = require('../models/user');
     //methods
     
     function getChildren(id, callback){
+        //gets direct children of deck
         var sql = "SELECT item_id AS id, item_type AS type, position FROM ?? WHERE ?? = ? ORDER BY position";
         var inserts = ['deck_content', 'deck_revision_id', id];
         sql = mysql.format(sql, inserts);
@@ -155,7 +156,6 @@ var user = require('../models/user');
     };
     
     exports.getSlides = function(id, offset, limit, onlyIDs, callback){
-        
         
         var result = {};
         result.id = id;

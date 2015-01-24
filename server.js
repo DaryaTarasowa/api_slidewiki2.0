@@ -6,12 +6,11 @@ var ejs = require('ejs');
 var mysql = require('mysql');
 var connection = require('./config').connection; //mysql connection
 var passport = require('passport');
+var flash    = require('connect-flash');
+var morgan       = require('morgan');
+var cookieParser = require('cookie-parser');
 
-var authController = require('./controllers/auth');
-var deckController = require('./controllers/deck');
-var slideController = require('./controllers/slide');
-var userController = require('./controllers/user');
-var scriptsController = require('./controllers/scripts');
+
 
 
 		
@@ -35,9 +34,14 @@ function start(){
           saveUninitialized: true,
           resave: true
         }));
+        
+        app.use(morgan('dev')); // log every request to the console
+        app.use(cookieParser()); // read cookies (needed for auth)
 
         
         app.use(passport.initialize());
+        app.use(passport.session()); // persistent login sessions
+        app.use(flash()); // use connect-flash for flash messages stored in session
 	
 	var port = require('./config').port;
 	
@@ -50,44 +54,12 @@ function start(){
 
 		console.log('connected as id ' + connection.threadId);
 	});
+        require('./config/passport')(passport); // pass passport for configuration
+        require('./routes.js')(app, passport); // load our routes and pass in our app and fully configured passport
         
-        // Create Express router
-	var router = express.Router();
-		
-	router.route('/deck/tree/:rev_id')
-                .get(deckController.getTree);
+       
         
-        router.route('/deck/:rev_id')
-                .get(deckController.getMetadata);
-        
-        router.route('/slide/:rev_id')
-                .get(slideController.getMetadata);
-        
-        router.route('/user/:id')
-                .get(userController.getMetadata);
-        
-        router.route('/content/contributors/deck/:rev_id')
-                .get(deckController.getContributors);
-        
-        router.route('/content/contributors/slide/:rev_id')
-                .get(slideController.getContributors);
-        
-        router.route('/content/tags/deck/:rev_id')
-                .get(deckController.getTags);
-        
-        router.route('/content/tags/slide/:rev_id')
-                .get(slideController.getTags);
-        
-        router.route('/deck/slides/:rev_id/offset/:offset/limit/:limit/:onlyIDs')
-                .get(deckController.getSlides);
-        
-        /////////////Scripts for changing from SlideWiki1.0/////////////////////
-        router.route('/scripts/setAllTitles')
-                .get(scriptsController.setAllTitles);
       
-        
-       // Register all our routes with /api
-	app.use('/api', router);
 
 	// Start the server
 	app.listen(port);

@@ -4,7 +4,8 @@ var user = require('../models/user');
 
 exports.getMetadata = function(req, res) {		
     if (parseInt(req.params.id) > 0){
-        user.getMetadata(req.params.id, function(metadata) {res.json(metadata);});	
+        var fields = ['id', 'email', 'picture', 'username', 'password', 'registered'];
+        user.findLocal(fields, {'id' : req.params.id}, function(err, metadata) {res.json(metadata);});	
     }else{
         res.json({error : "id is not valid!"});
     }

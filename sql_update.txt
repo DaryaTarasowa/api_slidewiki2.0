@@ -40,5 +40,43 @@ DROP TABLE IF EXISTS service_table;
 DROP TABLE IF EXISTS slide;
 DROP TABLE IF EXISTS test_results;
 
+CREATE TABLE fb_users (
+id varchar(255) NOT NULL PRIMARY KEY,
+email varchar(255) NOT NULL,
+name varchar(255) NOT NULL,
+token varchar(255) NOT NULL
+);
+
+CREATE TABLE local_users (
+id int(10) NOT NULL PRIMARY KEY AUTO_INCREMENT,
+email varchar(255) NOT NULL,
+username varchar(128) NOT NULL,
+password varchar(255) NOT NULL,
+registered TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+default_theme int(11)
+);
+
+INSERT INTO `local_users` (id, email,username, password, registered, default_theme) SELECT id, email,username, password, registered, default_theme FROM users;
+
+ALTER TABLE slidewiki.users
+  ADD local_id int(11) NULL AFTER id,
+  DROP email, DROP username, DROP password, DROP registered, DROP default_theme;
+
+UPDATE users SET local_id = id WHERE 1;
 
 
+ALTER TABLE slidewiki.fb_users
+  ADD (gender enum('male', 'female') NULL,
+       locale tinytext NULL,
+       hometown tinytext NULL,
+       location tinytext NULL,
+languages mediumtext NULL,
+picture tinytext NULL,
+interests mediumtext NULL,
+birthday varchar(11) NULL
+);
+
+ALTER TABLE slidewiki.users 
+DROP first_name, DROP last_name, DROP gender, DROP locale, DROP hometown, DROP location, DROP languages, DROP interests, DROP birthday;
+
+UPDATE slidewiki.users SET fb_id = NULL WHERE 1;

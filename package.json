@@ -2,18 +2,27 @@
   "name": "slidewiki",
   "main": "index.js",
   "dependencies": {
+    "async": "^0.9.0",
     "bcrypt-nodejs": "0.0.3",
     "body-parser": "^1.10.0",
+    "connect-flash": "~0.1.1",
+    "cookie-parser": "~1.0.0",
     "dnode": "^1.2.0",
     "ejs": "^2.1.4",
     "express": "~4.1.1",
     "express-session": "^1.10.1",
     "md5": "^1.0.0",
+    "method-override": "~1.0.0",
+    "morgan": "~1.0.0",
     "mysql": "^2.5.3",
     "oauth2orize": "^1.0.1",
     "passport": "^0.2.1",
+    "passport-facebook": "~1.0.2",
+    "passport-google-oauth": "~0.1.5",
     "passport-http": "^0.2.2",
     "passport-http-bearer": "^1.0.1",
+    "passport-local": "~0.1.6",
+    "passport-twitter": "~1.0.2",
     "underscore": "^1.7.0"
   }
 }
