@@ -1,8 +1,22 @@
 var mysql = require('mysql');
 var lib = require('./library');
 var connection = require('../config').connection;
+var async = require('async');
+var user = require('./user');
 
-// Constructor
+
+
+function getCreatedAt(id, callback){
+    var sql = "SELECT timestamp FROM ?? WHERE ?? = ? LIMIT 1";
+    var inserts = ['slide_revision', 'id', id];
+    sql = mysql.format(sql, inserts);
+    connection.query(sql, function(err, results) {
+        if (err) callback({error : err});
+        callback(results[0].timestamp);
+    });
+}
+
+
 exports.getTitle = function(rev_id, callback){
         //gets the title either from title field or parsing the content, returns the cb(title)
         
@@ -88,41 +102,52 @@ exports.getTitle = function(rev_id, callback){
     exports.getContributors = function(rev_id, contributors, callback){
         //TODO: the user having different roles should be filtered?
         //TODO: translators
-        var sql = 'SELECT users.username AS username, picture AS avatar, registered, slide_revision.based_on AS based_on FROM slide_revision INNER JOIN users ON(slide_revision.user_id=users.id) WHERE ?? = ? LIMIT 1';
-        var inserts = ['slide_revision.id', rev_id];
-        sql = mysql.format(sql, inserts);
-        connection.query(sql,function(err,results){
-            if (err) callback({error : err});
+    
             
-            if (results.length){
-                var based_on = results[0].based_on;
-                delete results[0].based_on;
-                if (based_on){      //this is not the first revision
-                    contributors.push(results[0]);                    
-                    exports.getContributors(based_on, contributors, function(result){
-                        callback(result);
-                    });                                                              
-                }else{ 
-                    contributors.push(results[0]);                
-                    contributors = lib.arrUnique(contributors);
-                    contributors.forEach(function(user, index){
-                            
-                        user.role = [];
-                        user.role.push('contributor');
-                        if (user.username === results[0].username){
-                            user.role.push('creator');
-                        }
-                        contributors[index] = user;
+           
+                var sql = 'SELECT based_on, user_id, local_id, fb_id FROM slide_revision INNER JOIN users on user_id = users.id WHERE ?? = ? LIMIT 1';
+                var inserts = ['slide_revision.id', rev_id];
+                sql = mysql.format(sql, inserts);
 
-                        if (index === contributors.length -1 ){
-                            callback(contributors);
-                        }                            
-                    });
-                }    
-            }else{
-                callback({error: 'slide not found'});   
-            }                    
-        });
+                connection.query(sql,function(err,results){
+                    if (err) callback({error : err});
+
+                    var based_on = results[0].based_on;
+                    delete results[0].based_on;
+                    if (based_on){      //this is not the first revision
+                        contributors.push({id: results[0].user_id, role: [], local_id: results[0].local_id, fb_id: results[0].fb_id});                    
+                        exports.getContributors(based_on, contributors, function(result){
+                            callback(result);
+                        });                                                              
+                    }else{ 
+                        contributors.push({id: results[0].user_id, role: [], local_id: results[0].local_id, fb_id: results[0].fb_id});               
+                        contributors = lib.arrUnique(contributors);
+                        contributors.forEach(function(contributor, index){
+                            contributor.role.push('contributor');
+                            if (contributor.id === results[0].user_id){
+                                contributor.role.push('creator');
+                            }
+                            contributors[index] = contributor;
+                            if (contributor.local_id){
+                                user.enrichFromLocal(contributor, function(err, enriched){
+                                    delete contributor.local_id;
+                                    delete contributor.fb_id;
+                                    contributor.email = enriched.local.email;
+                                    contributor.registered = enriched.local.registered;
+                                    contributor.username = enriched.local.username;
+                                    delete contributor.local;
+                                    if (index === contributors.length - 1){
+                                        callback(contributors);
+                                    }
+                                });
+                            }
+                           
+                        });
+                    }
+                });
+            
+            
+        
     };
     
     exports.getTags = function(rev_id, callback){
@@ -194,6 +219,76 @@ exports.getTitle = function(rev_id, callback){
                 callback({error :'Slide not found'});
             }            
         });
+    };
+    
+    exports.new = function(slide_metadata, callback){
+        var injection = {};
+        injection.position = slide_metadata.position;
+        injection.title = slide_metadata.title;
+        injection.user_id = slide_metadata.user_id;
+        injection.content = '';
+        injection.branch_owner = slide_metadata.user_id;
+        injection.language = slide_metadata.language;
+        if (!injection.language) injection.language = null;
+        injection.parent_deck_id = slide_metadata.parent_deck_id;
+        
+        async.waterfall(
+            [
+                function getPositionNewSlide(cbAsync){
+                    var sql = "SELECT max(position) AS max_position FROM deck_content WHERE ?";
+                    var inserts = [{deck_revision_id : injection.parent_deck_id}];
+                    sql = mysql.format(sql, inserts);
+
+                    connection.query(sql, function(err, results){
+                        injection.position = results[0].max_position + 1;
+                        cbAsync(err, injection);
+                    });
+                },
+
+                function getBranchNewSlide(injection, cbAsync) {
+                    var sql = "SELECT max(branch_id) AS max_brunch FROM slide_revision WHERE 1";
+                    connection.query(sql, function(err, results){
+                        injection.branch_id = results[0].max_brunch + 1;
+                        cbAsync(err, injection);
+                    });
+                },
+                function saveSlide(injection, cbAsync){
+                    var deck_revision_id = injection.parent_deck_id;
+                    delete injection.parent_deck_id;
+                    var position = injection.position;
+                    delete injection.position;                    
+                    var sql = "INSERT into slide_revision SET ?";
+                    var inserts = [injection];
+                    sql = mysql.format(sql, inserts);
+                    connection.query(sql, function(err, qresults){
+                        if (err) callback(err);
+
+                        injection.id = qresults.insertId;
+                        delete injection.content;
+                        injection.body = '';
+                        delete injection.branch_id;
+                        delete injection.branch_owner;
+                        delete injection.language;
+
+                        var sql = "INSERT into deck_content SET ?";
+                        var inserts = [{deck_revision_id :deck_revision_id, item_id : injection.id, item_type: 'slide', position: position}];
+                        sql = mysql.format(sql, inserts);
+                        connection.query(sql, function(err, results_insert){
+                            getCreatedAt(injection.id, function(created_at){
+                                console.log(created_at);
+                                injection.created_at = created_at;
+                                cbAsync(null, injection);
+                            })
+                            
+                        });
+
+                    });
+                }
+            ], 
+            function asyncComplete(err, result) {
+                callback(err, result);  
+            }
+        );
     };
 
 

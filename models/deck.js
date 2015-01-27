@@ -3,7 +3,7 @@ var slide = require('./slide');
 var lib = require('./library');
 var connection = require('../config').connection;
 var user = require('../models/user');
-
+var async = require('async');
 
     
     //high-order fundtions
@@ -222,58 +222,73 @@ var user = require('../models/user');
         //TODO: the user having different roles should be filtered?
         //TODO: translators
        
-        var contributors = [];
-        var cbs = 0;
-        var sql = 'SELECT users.username AS username, picture AS avatar, registered FROM deck_revision INNER JOIN users ON(deck_revision.user_id=users.id) WHERE ?? = ? LIMIT 1';
-        var inserts = ['deck_revision.id', rev_id];
-        sql = mysql.format(sql, inserts);
-        
-        exports.getAllSlides(rev_id, function(slide_ids){ //get contributors of slides
-            if (!slide_ids.error){
-                slide_ids.forEach(function(slide_id){
-                    cbs++;
-                    slide.getContributors(slide_id, [], function(slide_contributors){
-                        if (slide_contributors.error){
-                            callback(slide_contributors);
-                        }
-                        contributors = contributors.concat(slide_contributors); //merge contributors from slides
-                        cbs--;
-                        if (cbs === 0){
-                            contributors.forEach(function(user,index){
-                                contributors[index].role = [];
-                            });
-                            contributors = lib.arrUnique(contributors); //unique
-                           
-                            connection.query(sql,function(err,results){ //add deck_revision creator
-                                if (err) callback({error : err});
-
-                                if (results.length){
-                                    contributors.push(results[0]);
-                                    contributors = lib.arrUnique(contributors); //unique
-                                    contributors.forEach(function(user, index){
-                                        user.role = [];
-                                        user.role.push('contributor');
-                                        if (user.username === results[0].username){
-                                            user.role.push('creator');
-                                        }
-                                        contributors[index] = user;
-
-                                        if (index === contributors.length -1 ){
-                                            callback(contributors);
-                                        }                            
-                                    })                                   
-                                }else{
-                                    callback(lib.arrUnique(contributors));
-                                }                            
-                            });
-                        };
-                    });                
+        async.waterfall([
+            function getUser(cbAsync){
+                var sql = 'SELECT user_id, local_id, fb_id FROM deck_revision INNER JOIN users on user_id = users.id WHERE ?? = ? LIMIT 1';
+                var inserts = ['deck_revision.id', rev_id];
+                sql = mysql.format(sql, inserts);
+                
+                connection.query(sql,function(err,results){
+                    if (err) callback({error : err});
+                    cbAsync(null, results[0]);
                 });
-            }else{
-                callback(slide_ids);
+            },
+            function collectContributors(user_obj, cbAsync){
+                var contributors = [];
+                var cbs = 0;
+                exports.getAllSlides(rev_id, function(slide_ids){ //get contributors of slides
+                    slide_ids.forEach(function(slide_id, index){
+                        cbs++;
+                        slide.getContributors(slide_id, [], function(slide_contributors){
+                            contributors = contributors.concat(slide_contributors); //merge contributors from slides
+                            cbs--;
+                            if (cbs === 0){cbAsync(null, user_obj, lib.arrUnique(contributors));}
+                        });
+                    });
+                    
+                });
+            },
+            
+            function addDeckOwner(user_obj, slide_contributors, cbAsync){
+                
+                slide_contributors.forEach(function(element,index){
+                    slide_contributors[index].role = [];
+                });
+                
+                 
+                    if (user_obj.local_id){
+                        user.enrichFromLocal(user_obj, function(err, enriched){
+                            delete user_obj.local_id;
+                            delete user_obj.fb_id;
+                            user_obj.id = user_obj.user_id;
+                            user_obj.email = enriched.local.email;
+                            
+                            
+                            user_obj.role = [];
+                            user_obj.registered = enriched.local.registered;
+                            user_obj.username = enriched.local.username;
+                            delete user_obj.local;
+                            delete user_obj.user_id;
+                            slide_contributors.push(user_obj);
+                            var contributors = lib.arrUnique(slide_contributors); //unique
+                            console.log(contributors);
+                            contributors.forEach(function(user, index){
+                                user.role.push('contributor');
+                                if (user.id === user_obj.id){
+                                    user.role.push('creator');
+                                }
+                                contributors[index] = user;
+
+                                if (index === contributors.length -1 ){
+                                    cbAsync(null, contributors);
+                                }                            
+                            }) 
+                        });
+                    }
+                 
             }
-                        
-        });
+        ], function(err, results){callback(results);});
+        
     };
     
     exports.getTags = function(rev_id, callback){

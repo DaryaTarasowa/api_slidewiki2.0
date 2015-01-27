@@ -24,4 +24,8 @@ exports.getTags = function(req, res) {
     }
 };
 
+exports.newSlide = function(req, res){
+    slide.new(req.body, function(err, new_slide){res.json(new_slide)});
+};
+
 

@@ -26,7 +26,7 @@ passport.use(new BasicStrategy(
 
 
 exports.isAuthenticated = passport.authenticate(['basic'], { session : false });
-
+exports.showLogin = function(req, res) {res.render('login.ejs', { message: req.flash('loginMessage') })}; 
 
 
 

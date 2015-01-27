@@ -4,7 +4,7 @@ var salt = 'slidewikisalt';
 var connection = require('../config').connection;
 var async  = require('async');
 
-    function enrichFromLocal(user, callback){
+    exports.enrichFromLocal = function(user, callback){
         var sql = 'SELECT * FROM ?? WHERE id = ? LIMIT 1';
         var inserts = ['local_users', user.local_id];
         var sql = mysql.format(sql, inserts);
@@ -21,7 +21,7 @@ var async  = require('async');
         })    
     };
     
-    function enrichFromFB(user, callback){
+    exports.enrichFromFB = function(user, callback){
         var sql = 'SELECT * FROM ?? WHERE id = ? LIMIT 1';
         var inserts = ['fb_users', user.fb_id];
         var sql = mysql.format(sql, inserts);
@@ -101,9 +101,9 @@ var async  = require('async');
                 var user = results[0];
                 
                 if (user.local_id){
-                    enrichFromLocal(user, function(err, user){
+                    exports.enrichFromLocal(user, function(err, user){
                         if (user.fb_id){
-                            enrichFromFB(user, function(err, user){
+                            exports.enrichFromFB(user, function(err, user){
                                 callback(null, user);
                             });
                         }else{
@@ -112,7 +112,7 @@ var async  = require('async');
                     });
                 }else{
                     if (user.fb_id){
-                        enrichFromFB(user, function(err, user){
+                        exports.enrichFromFB(user, function(err, user){
                             callback(null, user);
                         });
                     }else{
