@@ -99,52 +99,70 @@ exports.getTitle = function(rev_id, callback){
         }        
     };
     
-    exports.getContributors = function(rev_id, contributors, callback){
-        //TODO: the user having different roles should be filtered?
-        //TODO: translators
-    
+    exports.getContributorsShort = function(rev_id, contributors, callback){
+        var sql = 'SELECT user_id, based_on FROM slide_revision WHERE ?? = ? LIMIT 1';
+        var inserts = ['id', rev_id];
+        sql = mysql.format(sql, inserts);
+
+        connection.query(sql,function(err,results){
+            if (err) callback({error : err});
+
             
+            if (results[0].based_on){      //this is not the first revision
+                contributors.push(results[0].user_id);                    
+                exports.getContributorsShort(results[0].based_on, contributors, function(result){
+                    callback(result);
+                });                                                              
+            }else{ 
+                contributors.push(results[0].user_id);               
+                contributors = lib.arrUnique(contributors);
+                callback(contributors);
+            }
+        });
+    };
+    
+    exports.getContributors = function(rev_id, contributors, callback){
            
-                var sql = 'SELECT based_on, user_id, local_id, fb_id FROM slide_revision INNER JOIN users on user_id = users.id WHERE ?? = ? LIMIT 1';
-                var inserts = ['slide_revision.id', rev_id];
-                sql = mysql.format(sql, inserts);
+        var sql = 'SELECT based_on, user_id, local_id, fb_id FROM slide_revision INNER JOIN users on user_id = users.id WHERE ?? = ? LIMIT 1';
+        var inserts = ['slide_revision.id', rev_id];
+        sql = mysql.format(sql, inserts);
 
-                connection.query(sql,function(err,results){
-                    if (err) callback({error : err});
+        connection.query(sql,function(err,results){
+            if (err) callback({error : err});
 
-                    var based_on = results[0].based_on;
-                    delete results[0].based_on;
-                    if (based_on){      //this is not the first revision
-                        contributors.push({id: results[0].user_id, role: [], local_id: results[0].local_id, fb_id: results[0].fb_id});                    
-                        exports.getContributors(based_on, contributors, function(result){
-                            callback(result);
-                        });                                                              
-                    }else{ 
-                        contributors.push({id: results[0].user_id, role: [], local_id: results[0].local_id, fb_id: results[0].fb_id});               
-                        contributors = lib.arrUnique(contributors);
-                        contributors.forEach(function(contributor, index){
-                            contributor.role.push('contributor');
-                            if (contributor.id === results[0].user_id){
-                                contributor.role.push('creator');
+            var based_on = results[0].based_on;
+            delete results[0].based_on;
+            if (based_on){      //this is not the first revision
+                contributors.push({id: results[0].user_id, role: [], local_id: results[0].local_id, fb_id: results[0].fb_id});                    
+                exports.getContributors(based_on, contributors, function(result){
+                    callback(result);
+                });                                                              
+            }else{ 
+                contributors.push({id: results[0].user_id, role: [], local_id: results[0].local_id, fb_id: results[0].fb_id});               
+                contributors = lib.arrUnique(contributors);
+                contributors.forEach(function(contributor, index){
+                    contributor.role.push('contributor');
+                    if (contributor.id === results[0].user_id){
+                        contributor.role.push('creator');
+                    }
+                    contributors[index] = contributor;
+                    if (contributor.local_id){
+                        user.enrichFromLocal(contributor, function(err, enriched){
+                            delete contributor.local_id;
+                            delete contributor.fb_id;
+                            contributor.email = enriched.local.email;
+                            contributor.registered = enriched.local.registered;
+                            contributor.username = enriched.local.username;
+                            delete contributor.local;
+                            if (index === contributors.length - 1){
+                                callback(contributors);
                             }
-                            contributors[index] = contributor;
-                            if (contributor.local_id){
-                                user.enrichFromLocal(contributor, function(err, enriched){
-                                    delete contributor.local_id;
-                                    delete contributor.fb_id;
-                                    contributor.email = enriched.local.email;
-                                    contributor.registered = enriched.local.registered;
-                                    contributor.username = enriched.local.username;
-                                    delete contributor.local;
-                                    if (index === contributors.length - 1){
-                                        callback(contributors);
-                                    }
-                                });
-                            }
-                           
                         });
                     }
+
                 });
+            }
+        });
             
             
         

@@ -3,6 +3,21 @@ var crypto = require('crypto');
 var salt = 'slidewikisalt';
 var connection = require('../config').connection;
 var async  = require('async');
+var lib = require('./library');
+
+
+    exports.enrich = function(user_id, callback){
+        var sql = 'SELECT users.id AS id, local_id, fb_id, local_users.email, local_users.username, local_users.registered, fb_users.email AS fb_email, fb_users.name FROM users LEFT JOIN local_users ON users.local_id = local_users.id LEFT JOIN fb_users ON users.fb_id = fb_users.id WHERE users.id = ? LIMIT 1';
+        var inserts = [user_id];
+        var sql = mysql.format(sql, inserts);
+
+        connection.query(sql, function(err, results){
+            if (err) callback(err);
+            
+            
+            callback(lib.compactObject(results[0]));            
+        });
+    };
 
     exports.enrichFromLocal = function(user, callback){
         var sql = 'SELECT * FROM ?? WHERE id = ? LIMIT 1';

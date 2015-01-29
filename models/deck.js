@@ -224,67 +224,94 @@ var async = require('async');
        
         async.waterfall([
             function getUser(cbAsync){
-                var sql = 'SELECT user_id, local_id, fb_id FROM deck_revision INNER JOIN users on user_id = users.id WHERE ?? = ? LIMIT 1';
-                var inserts = ['deck_revision.id', rev_id];
+                var sql = 'SELECT user_id FROM deck_revision WHERE ?? = ? LIMIT 1';
+                var inserts = ['id', rev_id];
                 sql = mysql.format(sql, inserts);
                 
                 connection.query(sql,function(err,results){
-                    if (err) callback({error : err});
-                    cbAsync(null, results[0]);
+                    if (err) cbAsync(err);
+                    cbAsync(null, results[0].user_id);
                 });
             },
-            function collectContributors(user_obj, cbAsync){
+            
+            function collectContributors(owner_id, cbAsync){
                 var contributors = [];
                 var cbs = 0;
                 exports.getAllSlides(rev_id, function(slide_ids){ //get contributors of slides
                     slide_ids.forEach(function(slide_id, index){
                         cbs++;
-                        slide.getContributors(slide_id, [], function(slide_contributors){
+                        slide.getContributorsShort(slide_id, [], function(slide_contributors){
                             contributors = contributors.concat(slide_contributors); //merge contributors from slides
                             cbs--;
-                            if (cbs === 0){cbAsync(null, user_obj, lib.arrUnique(contributors));}
+                            if (cbs === 0){
+                                cbAsync(null, owner_id, lib.arrUnique(contributors));}
                         });
                     });
                     
                 });
             },
             
-            function addDeckOwner(user_obj, slide_contributors, cbAsync){
+            function enrichUsers(owner_id, slide_contributors, cbAsync){
+                slide_contributors.forEach(function(element, index){
+                    user.enrich(element, function(enriched){
+                        slide_contributors[index] = enriched;
+                        if (index === slide_contributors.length - 1){
+                            cbAsync(null, owner_id, slide_contributors);
+                        }
+                    })
+                })
+            },
+            
+            function addDeckOwner(owner_id, slide_contributors, cbAsync){
                 
-                slide_contributors.forEach(function(element,index){
-                    slide_contributors[index].role = [];
-                });
                 
-                 
-                    if (user_obj.local_id){
-                        user.enrichFromLocal(user_obj, function(err, enriched){
-                            delete user_obj.local_id;
-                            delete user_obj.fb_id;
-                            user_obj.id = user_obj.user_id;
-                            user_obj.email = enriched.local.email;
-                            
-                            
-                            user_obj.role = [];
-                            user_obj.registered = enriched.local.registered;
-                            user_obj.username = enriched.local.username;
-                            delete user_obj.local;
-                            delete user_obj.user_id;
-                            slide_contributors.push(user_obj);
-                            var contributors = lib.arrUnique(slide_contributors); //unique
-                            console.log(contributors);
-                            contributors.forEach(function(user, index){
-                                user.role.push('contributor');
-                                if (user.id === user_obj.id){
-                                    user.role.push('creator');
-                                }
-                                contributors[index] = user;
-
-                                if (index === contributors.length -1 ){
-                                    cbAsync(null, contributors);
-                                }                            
-                            }) 
-                        });
-                    }
+                user.enrich(owner_id, function(enriched){
+                    slide_contributors.push(enriched);
+                    var contributors = lib.arrUnique(slide_contributors);
+                    contributors.forEach(function(element, index){
+                        contributors[index].role = ['contributor'];
+                        if (element.id === owner_id){
+                            contributors[index].role.push('creator');
+                            if (index === contributors.length - 1){
+                                cbAsync(null, contributors);
+                            }
+                        }else{
+                            if (index === contributors.length - 1){
+                                cbAsync(null, contributors);
+                            }
+                        }
+                        
+                    });
+                }) 
+//                    if (user_obj.local_id){
+//                        user.enrichFromLocal(user_obj, function(err, enriched){
+//                            delete user_obj.local_id;
+//                            delete user_obj.fb_id;
+//                            user_obj.id = user_obj.user_id;
+//                            user_obj.email = enriched.local.email;
+//                            
+//                            
+//                            user_obj.role = [];
+//                            user_obj.registered = enriched.local.registered;
+//                            user_obj.username = enriched.local.username;
+//                            delete user_obj.local;
+//                            delete user_obj.user_id;
+//                            slide_contributors.push(user_obj);
+//                            var contributors = lib.arrUnique(slide_contributors); //unique
+//                            console.log(contributors);
+//                            contributors.forEach(function(user, index){
+//                                user.role.push('contributor');
+//                                if (user.id === user_obj.id){
+//                                    user.role.push('creator');
+//                                }
+//                                contributors[index] = user;
+//
+//                                if (index === contributors.length -1 ){
+//                                    cbAsync(null, contributors);
+//                                }                            
+//                            }) 
+//                        });
+//                    }
                  
             }
         ], function(err, results){callback(results);});
