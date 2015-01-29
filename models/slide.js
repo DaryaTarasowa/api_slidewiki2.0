@@ -7,15 +7,32 @@ var user = require('./user');
 
 
 function getCreatedAt(id, callback){
-    var sql = "SELECT timestamp FROM ?? WHERE ?? = ? LIMIT 1";
+    var sql = "SELECT created_at FROM ?? WHERE ?? = ? LIMIT 1";
     var inserts = ['slide_revision', 'id', id];
     sql = mysql.format(sql, inserts);
+    
     connection.query(sql, function(err, results) {
         if (err) callback({error : err});
-        callback(results[0].timestamp);
+        callback(results[0].created_at);
     });
 }
 
+function getContent (rev_id, callback){
+    //gets the content of a slide, returns the cb of content
+
+    var sql = "SELECT body FROM ?? WHERE ?? = ? LIMIT 1";
+    var inserts = ['slide_revision', 'id', rev_id];
+    sql = mysql.format(sql, inserts);
+    connection.query(sql, function(err, results) {
+        if (err) callback({error : err});
+
+        if (results.length){
+            callback(results[0].content);   
+        }else{
+            callback({error: 'slide not found!'});
+        }                         
+    });        
+}; 
 
 exports.getTitle = function(rev_id, callback){
         //gets the title either from title field or parsing the content, returns the cb(title)
@@ -30,7 +47,7 @@ exports.getTitle = function(rev_id, callback){
                 if (results[0].title){
                     callback(results[0].title);
                 }else{
-                    exports.getContent(rev_id, function(content){
+                    getContent(rev_id, function(content){
                         if (content.error){
                             callback(content);
                         }
@@ -45,34 +62,19 @@ exports.getTitle = function(rev_id, callback){
         });
     };
     
-    exports.getContent = function(rev_id, callback){
-        //gets the content of a slide, returns the cb of content
-        
-        var sql = "SELECT content FROM ?? WHERE ?? = ? LIMIT 1";
-        var inserts = ['slide_revision', 'id', rev_id];
-        sql = mysql.format(sql, inserts);
-        connection.query(sql, function(err, results) {
-            if (err) callback({error : err});
-            
-            if (results.length){
-                callback(results[0].content);   
-            }else{
-                callback({error: 'slide not found!'});
-            }                         
-        });        
-    };    
+   
     
     exports.setTitleFromContent = function(rev_id, content, callback){
         //sets the title field in the content parsing the content, returns the cb of set title
         
         var patt = new RegExp(/<h2(.*?)>(.*?)<\/( *?)h2>/);
         var title = patt.exec(content);
-        var content = content.replace(patt, '');
+        content = content.replace(patt, '');
         if (title){ //title is set
             title = lib.strip_tags(title[0],'').trim(); //remove tags and trimming
         }        
         var sql_title = "UPDATE ?? SET title = ? WHERE ?? = ? LIMIT 1";
-        var sql_content = "UPDATE ?? SET content = ? WHERE ?? = ? LIMIT 1";
+        var sql_content = "UPDATE ?? SET body = ? WHERE ?? = ? LIMIT 1";
         
         if (title){ //title is not empty
             var inserts_title = ['slide_revision', title, 'id', rev_id]; //set title field (only tags)
@@ -100,6 +102,7 @@ exports.getTitle = function(rev_id, callback){
     };
     
     exports.getContributorsShort = function(rev_id, contributors, callback){
+        //returns an array of contributors ids (filtered)
         var sql = 'SELECT user_id, based_on FROM slide_revision WHERE ?? = ? LIMIT 1';
         var inserts = ['id', rev_id];
         sql = mysql.format(sql, inserts);
@@ -122,50 +125,42 @@ exports.getTitle = function(rev_id, callback){
     };
     
     exports.getContributors = function(rev_id, contributors, callback){
-           
-        var sql = 'SELECT based_on, user_id, local_id, fb_id FROM slide_revision INNER JOIN users on user_id = users.id WHERE ?? = ? LIMIT 1';
-        var inserts = ['slide_revision.id', rev_id];
+        //returns an array of contributors
+        var sql = 'SELECT user_id, based_on FROM slide_revision WHERE ?? = ? LIMIT 1';
+        var inserts = ['id', rev_id];
         sql = mysql.format(sql, inserts);
 
         connection.query(sql,function(err,results){
             if (err) callback({error : err});
 
-            var based_on = results[0].based_on;
-            delete results[0].based_on;
-            if (based_on){      //this is not the first revision
-                contributors.push({id: results[0].user_id, role: [], local_id: results[0].local_id, fb_id: results[0].fb_id});                    
-                exports.getContributors(based_on, contributors, function(result){
+            
+            if (results[0].based_on){      //this is not the first revision
+                contributors.push(results[0].user_id);                    
+                exports.getContributors(results[0].based_on, contributors, function(result){
                     callback(result);
                 });                                                              
             }else{ 
-                contributors.push({id: results[0].user_id, role: [], local_id: results[0].local_id, fb_id: results[0].fb_id});               
+                contributors.push(results[0].user_id);               
                 contributors = lib.arrUnique(contributors);
-                contributors.forEach(function(contributor, index){
-                    contributor.role.push('contributor');
-                    if (contributor.id === results[0].user_id){
-                        contributor.role.push('creator');
-                    }
-                    contributors[index] = contributor;
-                    if (contributor.local_id){
-                        user.enrichFromLocal(contributor, function(err, enriched){
-                            delete contributor.local_id;
-                            delete contributor.fb_id;
-                            contributor.email = enriched.local.email;
-                            contributor.registered = enriched.local.registered;
-                            contributor.username = enriched.local.username;
-                            delete contributor.local;
+                contributors.forEach(function(element, index){
+                    user.enrich(element, function(enriched){
+                        contributors[index] = enriched;
+                        contributors[index].role = ['contributor'];
+                        if (element.id === results[0].user_id){
+                            contributors[index].role.push('creator');
                             if (index === contributors.length - 1){
                                 callback(contributors);
                             }
-                        });
-                    }
-
-                });
+                        }else{
+                            if (index === contributors.length - 1){
+                                callback(contributors);
+                            }
+                        }
+                        
+                    })
+                })
             }
         });
-            
-            
-        
     };
     
     exports.getTags = function(rev_id, callback){
@@ -220,7 +215,7 @@ exports.getTitle = function(rev_id, callback){
     exports.getMetadata = function(id, callback){
         //gets metadata of a slide
         
-        var sql = "SELECT id, timestamp AS created_at, content AS body FROM ?? WHERE ?? = ? LIMIT 1";
+        var sql = "SELECT id, created_at, body FROM ?? WHERE ?? = ? LIMIT 1";
         var inserts = ['slide_revision', 'id', id];
         sql = mysql.format(sql, inserts);
         connection.query(sql, function(err, results) {
@@ -244,7 +239,8 @@ exports.getTitle = function(rev_id, callback){
         injection.position = slide_metadata.position;
         injection.title = slide_metadata.title;
         injection.user_id = slide_metadata.user_id;
-        injection.content = '';
+        injection.body = slide_metadata.body;
+        if (!injection.body) injection.body = '';
         injection.branch_owner = slide_metadata.user_id;
         injection.language = slide_metadata.language;
         if (!injection.language) injection.language = null;
@@ -282,8 +278,6 @@ exports.getTitle = function(rev_id, callback){
                         if (err) callback(err);
 
                         injection.id = qresults.insertId;
-                        delete injection.content;
-                        injection.body = '';
                         delete injection.branch_id;
                         delete injection.branch_owner;
                         delete injection.language;
@@ -293,13 +287,10 @@ exports.getTitle = function(rev_id, callback){
                         sql = mysql.format(sql, inserts);
                         connection.query(sql, function(err, results_insert){
                             getCreatedAt(injection.id, function(created_at){
-                                console.log(created_at);
                                 injection.created_at = created_at;
                                 cbAsync(null, injection);
-                            })
-                            
+                            });
                         });
-
                     });
                 }
             ], 
@@ -307,6 +298,97 @@ exports.getTitle = function(rev_id, callback){
                 callback(err, result);  
             }
         );
+    };
+    
+    exports.update = function(slide_metadata, callback){
+        if (slide_metadata.no_new_revision === 'true'){
+            var sql = "UPDATE slide_revision SET ? WHERE ?";
+            var inserts = [{title: slide_metadata.title, body: slide_metadata.body}, {id : slide_metadata.id}];
+            sql = mysql.format(sql, inserts);
+            
+            connection.query(sql, function(err, results){
+                if (err) callback(err);
+                console.log(slide_metadata);
+                callback(null, slide_metadata);
+            });
+        }else{
+            var injection = {};
+            injection.id = slide_metadata.id;
+            injection.position = slide_metadata.position;
+            injection.title = slide_metadata.title;
+            injection.user_id = slide_metadata.user_id;
+            injection.body = slide_metadata.body;
+            if (!injection.body) injection.body = '';
+            injection.branch_owner = slide_metadata.user_id;
+            injection.language = slide_metadata.language;
+            if (!injection.language) injection.language = null;
+            injection.parent_deck_id = slide_metadata.parent_deck_id;
+
+            async.waterfall(
+                [
+                    function getPositionNewSlide(cbAsync){
+                        var sql = "SELECT position FROM deck_content WHERE ?? = ? AND ?? = ? AND ?? = ?";
+                        var inserts = ['deck_revision_id', injection.parent_deck_id, 'item_id', injection.id, 'item_type', 'slide'];
+                        sql = mysql.format(sql, inserts);
+                        
+                        connection.query(sql, function(err, results){
+                            injection.position = results[0].position;
+                            cbAsync(err, injection);
+                        });
+                    },
+
+                    function getBranchNewSlide(injection, cbAsync) {
+                        var sql = "SELECT branch_id FROM slide_revision WHERE ?";
+                        var inserts = [{id : injection.id}];
+                        sql = mysql.format(sql, inserts);
+                        connection.query(sql, function(err, results){
+                            injection.branch_id = results[0].branch_id;
+                            cbAsync(err, injection);
+                        });
+                    },
+                    function saveSlide(injection, cbAsync){
+                        var deck_revision_id = injection.parent_deck_id;
+                        delete injection.parent_deck_id;
+                        delete injection.position; 
+                        var old_id = injection.id;
+                        injection.based_on = old_id;
+                        delete injection.id;
+                        var sql = "INSERT into slide_revision SET ?";
+                        var inserts = [injection];
+                        sql = mysql.format(sql, inserts);
+                        
+                        connection.query(sql, function(err, qresults){
+                            if (err) callback(err);
+
+                            injection.id = qresults.insertId;
+                            
+                            delete injection.branch_id;
+                            delete injection.branch_owner;
+                            delete injection.language;
+                            delete injection.user_id;
+                            delete injection.based_on;
+
+                            var sql = "UPDATE deck_content SET ? WHERE ?? = ? AND ?? = ? AND ?? = ?";
+                            var inserts = [{item_id : injection.id}, 'deck_revision_id', deck_revision_id, 'item_id', old_id, 'item_type' , 'slide'];
+                            sql = mysql.format(sql, inserts);
+                            connection.query(sql, function(err, results_insert){
+                                
+                                getCreatedAt(injection.id, function(created_at){
+                                    injection.created_at = created_at;
+                                    cbAsync(null, injection);
+                                })
+
+                            });
+
+                        });
+                    }
+                ], 
+                function asyncComplete(err, result) {
+                    callback(err, result);  
+                }
+            );
+            
+        }
     };
 
 

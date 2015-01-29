@@ -80,3 +80,12 @@ ALTER TABLE slidewiki.users
 DROP first_name, DROP last_name, DROP gender, DROP locale, DROP hometown, DROP location, DROP languages, DROP interests, DROP birthday;
 
 UPDATE slidewiki.users SET fb_id = NULL WHERE 1;
+
+ALTER TABLE slidewiki.slide_revision
+CHANGE `timestamp` `created_at` timestamp DEFAULT CURRENT_TIMESTAMP;
+
+ALTER TABLE slidewiki.slide_revision
+CHANGE content body text;
+
+ALTER TABLE slidewiki.deck_revision
+CHANGE `timestamp` `created_at` timestamp DEFAULT CURRENT_TIMESTAMP;

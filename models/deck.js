@@ -107,7 +107,7 @@ var async = require('async');
     };
     
     exports.getMetadata = function(id, callback){
-        var sql = "SELECT id, title, timestamp AS created_at, abstract AS description FROM ?? WHERE ?? = ? LIMIT 1";
+        var sql = "SELECT id, title, created_at, abstract AS description FROM ?? WHERE ?? = ? LIMIT 1";
         var inserts = ['deck_revision', 'id', id];
         sql = mysql.format(sql, inserts);
         
