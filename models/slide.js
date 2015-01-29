@@ -249,14 +249,26 @@ exports.getTitle = function(rev_id, callback){
         async.waterfall(
             [
                 function getPositionNewSlide(cbAsync){
-                    var sql = "SELECT max(position) AS max_position FROM deck_content WHERE ?";
-                    var inserts = [{deck_revision_id : injection.parent_deck_id}];
-                    sql = mysql.format(sql, inserts);
+                    if (!injection.position){
+                        var sql = "SELECT max(position) AS max_position FROM deck_content WHERE ?";
+                        var inserts = [{deck_revision_id : injection.parent_deck_id}];
+                        sql = mysql.format(sql, inserts);
 
-                    connection.query(sql, function(err, results){
-                        injection.position = results[0].max_position + 1;
-                        cbAsync(err, injection);
-                    });
+                        connection.query(sql, function(err, results){
+                            injection.position = results[0].max_position + 1;
+                            cbAsync(err, injection);
+                        });
+                    }else{
+                        var sql = "UPDATE deck_content SET position = position + 1 WHERE deck_revision_id = ? AND position >= ? ORDER BY position DESC";
+                        var inserts = [injection.parent_deck_id, injection.position];
+                        sql = mysql.format(sql, inserts);
+                        
+                        connection.query(sql, function(err, results){
+                             cbAsync(err, injection);
+                        });
+
+                    }
+                    
                 },
 
                 function getBranchNewSlide(injection, cbAsync) {
@@ -274,6 +286,7 @@ exports.getTitle = function(rev_id, callback){
                     var sql = "INSERT into slide_revision SET ?";
                     var inserts = [injection];
                     sql = mysql.format(sql, inserts);
+                    console.log(sql);
                     connection.query(sql, function(err, qresults){
                         if (err) callback(err);
 
