@@ -32,4 +32,6 @@ exports.updateSlide = function(req, res){
     slide.update(req.body, function(err, new_slide){res.json(new_slide)});
 };
 
+exports.translate = slide.translate;
+
 

@@ -3,6 +3,7 @@ var lib = require('./library');
 var connection = require('../config').connection;
 var async = require('async');
 var user = require('./user');
+var googleTranslate = require('google-translate')('AIzaSyBlwXdmxJZ__ZNScwe4zq5r3qh3ebXb26k');
 
 
 
@@ -215,7 +216,7 @@ exports.getTitle = function(rev_id, callback){
     exports.getMetadata = function(id, callback){
         //gets metadata of a slide
         
-        var sql = "SELECT id, created_at, body FROM ?? WHERE ?? = ? LIMIT 1";
+        var sql = "SELECT id, created_at, body, language FROM ?? WHERE ?? = ? LIMIT 1";
         var inserts = ['slide_revision', 'id', id];
         sql = mysql.format(sql, inserts);
         connection.query(sql, function(err, results) {
@@ -402,6 +403,32 @@ exports.getTitle = function(rev_id, callback){
             );
             
         }
+    };
+    
+    exports.translate = function(user_id, slide_id, target, callback){
+        var translated = {};
+        translated.language = target;
+        
+        
+        async.waterfall([
+            function getSlideMetadata(cbAsync){
+                exports.getMetadata(slide_id, function(metadata){
+                    cbAsync(null, metadata);
+                });
+            },
+            
+            function translate_title(metadata, cbAsync){
+                googleTranslate.translate(metadata.title, target, function(err, translation){
+                    translated.title = translation.translatedText;
+                    cbAsync(null, translated);
+                });
+            }
+        ],
+        function asyncComplete(err, translated){
+            callback(translated);
+        });
+        
+        
     };
 
 
