@@ -44,6 +44,8 @@ exports.getSlides = function(req, res) {
     }
 };
 
+exports.translate = deck.translate;
+
 
 
 

@@ -33,11 +33,11 @@ module.exports = function(app, passport) {
         router.route('/translate/:target/:type/:id')
                 .get(isLoggedIn, function(req, res){
                     switch (req.params.type){
-                        case 'deck' : deckController.translate(req.user.id, req.params.id, req.params.target, function(result){
+                        case 'deck' : deckController.translate(req.user.id, req.params.id, req.params.target, function(err, result){
                                         res.json(result);
                                     });
                                     break;
-                        case 'slide' : slideController.translate(req.user.id, req.params.id, req.params.target, function(result){
+                        case 'slide' : slideController.translate(req.user.id, req.params.id, req.params.target, function(err, result){
                                         res.json(result);
                                     });
                                     break;
@@ -101,11 +101,7 @@ module.exports = function(app, passport) {
         router.route('/scripts/setAllTitles')
                 .get(scriptsController.setAllTitles);
         
-//        app.get('/api/profile', isLoggedIn, function(req, res) {
-//            res.render('profile.ejs', {
-//                user : req.user // get the user out of session and pass to template
-//            });
-//        });
+
     
          // Register all our routes with /api
 	app.use('/api', router);

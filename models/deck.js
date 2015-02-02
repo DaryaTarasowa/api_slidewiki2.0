@@ -4,6 +4,7 @@ var lib = require('./library');
 var connection = require('../config').connection;
 var user = require('../models/user');
 var async = require('async');
+var googleTranslate = require('google-translate')('AIzaSyBlwXdmxJZ__ZNScwe4zq5r3qh3ebXb26k');
 
     
     //high-order fundtions
@@ -22,7 +23,7 @@ var async = require('async');
     };
     
     
-    //methods
+    //private
     
     function getChildren(id, callback){
         //gets direct children of deck
@@ -35,6 +36,35 @@ var async = require('async');
             callback(results);
         });	
     };
+    
+    function translateContent(user_id, deck_id, target, metadata, callback){
+        getChildren(deck_id, function(children){
+            children.forEach(function(child, index){
+                
+                if (child.type === 'deck'){
+                    exports.translate(user_id, child.id, target, function(err, results){
+                        children[index].id = results.id;
+                        
+                        if (index === children.length - 1){
+                            callback(null, metadata, children);
+                        }
+                    });
+                    
+                }else{
+                    slide.translate(user_id, child.id, target, function(err, translated){
+                        console.log(child);
+                        children[index].id = translated.id;
+
+                        if (index === children.length - 1){
+                            callback(err, metadata, children);
+                        }
+                    });
+                }
+            });
+        });
+    };
+    
+    //public
         
     exports.getTitle = function(rev_id, callback){
         var sql = "SELECT title FROM ?? WHERE ?? = ?";
@@ -107,7 +137,7 @@ var async = require('async');
     };
     
     exports.getMetadata = function(id, callback){
-        var sql = "SELECT id, title, created_at, abstract AS description FROM ?? WHERE ?? = ? LIMIT 1";
+        var sql = "SELECT id, title, created_at, description, footer_text, origin FROM ?? WHERE ?? = ? LIMIT 1";
         var inserts = ['deck_revision', 'id', id];
         sql = mysql.format(sql, inserts);
         
@@ -129,6 +159,22 @@ var async = require('async');
                         callback(tree);
                     }                    
                 });     
+            }else{
+                callback({error : 'Deck not found!'});
+            }                   
+        });
+    };
+    
+    exports.getMetadataShort = function(id, callback){
+        var sql = "SELECT id, title, created_at, description, footer_text, origin FROM ?? WHERE ?? = ? LIMIT 1";
+        var inserts = ['deck_revision', 'id', id];
+        sql = mysql.format(sql, inserts);
+        
+        connection.query(sql, function(err, results) {
+            if (err) callback({error : err});
+            
+            if (results.length){
+                callback(results[0]);    
             }else{
                 callback({error : 'Deck not found!'});
             }                   
@@ -282,37 +328,7 @@ var async = require('async');
                         }
                         
                     });
-                }) 
-//                    if (user_obj.local_id){
-//                        user.enrichFromLocal(user_obj, function(err, enriched){
-//                            delete user_obj.local_id;
-//                            delete user_obj.fb_id;
-//                            user_obj.id = user_obj.user_id;
-//                            user_obj.email = enriched.local.email;
-//                            
-//                            
-//                            user_obj.role = [];
-//                            user_obj.registered = enriched.local.registered;
-//                            user_obj.username = enriched.local.username;
-//                            delete user_obj.local;
-//                            delete user_obj.user_id;
-//                            slide_contributors.push(user_obj);
-//                            var contributors = lib.arrUnique(slide_contributors); //unique
-//                            console.log(contributors);
-//                            contributors.forEach(function(user, index){
-//                                user.role.push('contributor');
-//                                if (user.id === user_obj.id){
-//                                    user.role.push('creator');
-//                                }
-//                                contributors[index] = user;
-//
-//                                if (index === contributors.length -1 ){
-//                                    cbAsync(null, contributors);
-//                                }                            
-//                            }) 
-//                        });
-//                    }
-                 
+                })
             }
         ], function(err, results){callback(results);});
         
@@ -337,6 +353,149 @@ var async = require('async');
             }else{
                 callback([]);
             }                    
+        });
+    };
+    
+    exports.new = function(deck, callback){
+        deck.branch_owner = deck.user_id;
+        async.waterfall([
+            function getBranchId(cbAsync){
+                var sql = "SELECT max(branch_id) AS max_brunch FROM deck_revision WHERE 1";
+                connection.query(sql, function(err, results){
+                    deck.branch_id = results[0].max_brunch + 1;
+                    cbAsync(err, deck);
+                });
+            },
+            function saveDeck(deck, cbAsync){
+                var sql = "INSERT into deck_revision SET ?";
+                var inserts = [deck];
+                sql = mysql.format(sql, inserts);
+                
+                
+                connection.query(sql, function(err, qresults){
+                    deck.id = qresults.insertId;
+                    cbAsync(err, deck);
+                });
+            }
+        ],
+        function AsyncComplete(err, deck){
+            callback(deck);
+        });
+    };
+    
+    exports.addContent = function(deck_id, children, callback){
+        var injection = {};
+        children.forEach(function(child, index){
+            injection.deck_revision_id = deck_id;
+            injection.item_id = child.id;
+            injection.item_type = child.type;
+            injection.position = child.position;
+            
+            
+            var sql = 'INSERT INTO deck_content SET ?';
+            var inserts = [injection];
+            sql = mysql.format(sql, inserts);
+            if (child.type === 'deck'){
+                connection.query(sql, function(err, results){
+                    if (err) callback(err);
+                    
+                    getChildren(child.id, function(grand_children){
+                        exports.addContent(child.id, grand_children, function(err, message){
+                            
+                            if (index === children.length - 1){
+                                callback(err, message);
+                            }
+                            
+                        });
+                    });
+                    
+                });
+            }else{
+                connection.query(sql, function(err, results){
+                    if (err) callback(err);
+                    
+                    if (index === children.length -1){
+                        callback(null, 'done!');
+                    }
+                });
+            }
+        });
+            
+    };
+    
+    function translateMetadata(user_id, deck_id, target, callback){
+        
+        async.waterfall([
+            function getDeckMetadata(cbAsync){
+                exports.getMetadataShort(deck_id, function(metadata){
+                    metadata.language = target;
+                    delete metadata.created_at;
+                    delete metadata.id;
+                    cbAsync(null, metadata);
+                });
+            },
+            
+            function translate_title(metadata, cbAsync){
+                
+                if (!metadata.title) {metadata.title = '';}
+                googleTranslate.translate(metadata.title, target, function(err, translation){
+                    
+                    metadata.title = translation.translatedText;
+                    cbAsync(null, metadata);
+                });
+            },
+            
+            function translate_desciption(metadata, cbAsync){
+                if (!metadata.description) {metadata.description = '';}
+                googleTranslate.translate(metadata.description, target, function(err, translation){
+                    metadata.description = translation.translatedText;
+                    cbAsync(null, metadata);
+                });
+            },
+            function translate_footer(metadata, cbAsync){
+                if (!metadata.footer_text) {metadata.footer_text = '';}
+                googleTranslate.translate(metadata.footer_text, target, function(err, translation){
+                    metadata.footer_text = translation.translatedText;
+                    cbAsync(null, metadata);
+                });
+            },
+            function save(metadata, cbAsync){
+                metadata.user_id = user_id;
+                metadata.translated_from_revision = deck_id;
+                metadata.translation_status = 'in_progress';
+                exports.new(metadata, function(saved){
+                    metadata.id = saved.id;
+                    cbAsync(null, metadata);
+                });
+            },
+        ], function(err, result){
+            callback(err, result);
+        })
+    }
+    
+    exports.translate = function(user_id, deck_id, target, callback){        
+        
+        
+        async.waterfall([
+            
+            function process_translate_metadata(cbAsync){
+                translateMetadata(user_id, deck_id, target, cbAsync);
+            },
+            
+            function save_content(metadata, cbAsync){
+                 translateContent(user_id, deck_id, target, metadata, cbAsync);
+            },
+            
+            function saveChildren(translated, children, cbAsync){
+                console.log(translated);
+                console.log(children);
+                exports.addContent(translated.id, children, function(err, results){
+                    cbAsync(err, translated);
+                });
+            }
+        ],
+        function asyncComplete(err, translated){
+            callback(err, translated);
         });
     };
 

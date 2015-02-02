@@ -5,7 +5,6 @@ ALTER TABLE slidewiki.slide_revision
 ALTER TABLE slidewiki.slide_revision
   ADD (origin tinytext NULL,
        language tinytext NULL,
-       translated_from int(11) NULL,
        branch_owner int(11) NULL),
   DROP license,
   CHANGE slide branch_id int(11);
@@ -13,7 +12,6 @@ ALTER TABLE slidewiki.slide_revision
 ALTER TABLE slidewiki.deck_revision
   ADD (origin tinytext NULL,
        language tinytext NULL,
-       translated_from int(11) NULL,
        branch_owner int(11) NULL),
   DROP license,
   CHANGE deck_id branch_id int(11);
@@ -21,7 +19,6 @@ ALTER TABLE slidewiki.deck_revision
 UPDATE deck, deck_revision 
 SET deck_revision.language = deck.language,
 deck_revision.origin = deck.description,
-deck_revision.translated_from = deck.translated_from,
 deck_revision.translated_from_revision = deck.translated_from_revision,
 deck_revision.branch_owner = deck.user_id
 WHERE deck_revision.branch_id = deck.id;
@@ -29,7 +26,6 @@ WHERE deck_revision.branch_id = deck.id;
 UPDATE slide, slide_revision 
 SET slide_revision.language = slide.language,
 slide_revision.origin = slide.description,
-slide_revision.translated_from = slide.translated_from,
 slide_revision.translated_from_revision = slide.translated_from_revision,
 slide_revision.branch_owner = slide.user_id
 WHERE slide_revision.branch_id = slide.id;
@@ -89,3 +85,6 @@ CHANGE content body text;
 
 ALTER TABLE slidewiki.deck_revision
 CHANGE `timestamp` `created_at` timestamp DEFAULT CURRENT_TIMESTAMP;
+
+ALTER TABLE slidewiki.deck_revision
+CHANGE abstract description text;

@@ -25,15 +25,27 @@ function getContent (rev_id, callback){
     var inserts = ['slide_revision', 'id', rev_id];
     sql = mysql.format(sql, inserts);
     connection.query(sql, function(err, results) {
-        if (err) callback({error : err});
+        if (err) callback(err);
 
         if (results.length){
-            callback(results[0].content);   
+            callback(null, results[0].body);   
         }else{
-            callback({error: 'slide not found!'});
+            callback('slide not found!');
         }                         
     });        
-}; 
+};
+
+function formatForTranslation(body){
+    body = body.trim().replace( /  +/g, ' ' ); //removing double spaces and trimming
+    body = body.replace(/\r|\n/g, '');
+    return body;
+}
+
+function splitBody(body){
+    //splits body into an array of 5000 characters strings
+    
+    return body.match(/.{1,5000}/g);
+}
 
 exports.getTitle = function(rev_id, callback){
         //gets the title either from title field or parsing the content, returns the cb(title)
@@ -48,9 +60,9 @@ exports.getTitle = function(rev_id, callback){
                 if (results[0].title){
                     callback(results[0].title);
                 }else{
-                    getContent(rev_id, function(content){
-                        if (content.error){
-                            callback(content);
+                    getContent(rev_id, function(err, content){
+                        if (err){
+                            callback(err);
                         }
                         exports.setTitleFromContent(rev_id, content, function(title){
                             callback(title);
@@ -237,7 +249,7 @@ exports.getTitle = function(rev_id, callback){
     
     exports.new = function(slide_metadata, callback){
         var injection = {};
-        injection.position = slide_metadata.position;
+        
         injection.title = slide_metadata.title;
         injection.user_id = slide_metadata.user_id;
         injection.body = slide_metadata.body;
@@ -245,34 +257,11 @@ exports.getTitle = function(rev_id, callback){
         injection.branch_owner = slide_metadata.user_id;
         injection.language = slide_metadata.language;
         if (!injection.language) injection.language = null;
-        injection.parent_deck_id = slide_metadata.parent_deck_id;
+        
         
         async.waterfall(
             [
-                function getPositionNewSlide(cbAsync){
-                    if (!injection.position){
-                        var sql = "SELECT max(position) AS max_position FROM deck_content WHERE ?";
-                        var inserts = [{deck_revision_id : injection.parent_deck_id}];
-                        sql = mysql.format(sql, inserts);
-
-                        connection.query(sql, function(err, results){
-                            injection.position = results[0].max_position + 1;
-                            cbAsync(err, injection);
-                        });
-                    }else{
-                        var sql = "UPDATE deck_content SET position = position + 1 WHERE deck_revision_id = ? AND position >= ? ORDER BY position DESC";
-                        var inserts = [injection.parent_deck_id, injection.position];
-                        sql = mysql.format(sql, inserts);
-                        
-                        connection.query(sql, function(err, results){
-                             cbAsync(err, injection);
-                        });
-
-                    }
-                    
-                },
-
-                function getBranchNewSlide(injection, cbAsync) {
+                function getBranchNewSlide(cbAsync) {
                     var sql = "SELECT max(branch_id) AS max_brunch FROM slide_revision WHERE 1";
                     connection.query(sql, function(err, results){
                         injection.branch_id = results[0].max_brunch + 1;
@@ -280,14 +269,12 @@ exports.getTitle = function(rev_id, callback){
                     });
                 },
                 function saveSlide(injection, cbAsync){
-                    var deck_revision_id = injection.parent_deck_id;
-                    delete injection.parent_deck_id;
-                    var position = injection.position;
-                    delete injection.position;                    
+                    
                     var sql = "INSERT into slide_revision SET ?";
                     var inserts = [injection];
                     sql = mysql.format(sql, inserts);
-                    console.log(sql);
+                    
+                    
                     connection.query(sql, function(err, qresults){
                         if (err) callback(err);
 
@@ -295,15 +282,10 @@ exports.getTitle = function(rev_id, callback){
                         delete injection.branch_id;
                         delete injection.branch_owner;
                         delete injection.language;
-
-                        var sql = "INSERT into deck_content SET ?";
-                        var inserts = [{deck_revision_id :deck_revision_id, item_id : injection.id, item_type: 'slide', position: position}];
-                        sql = mysql.format(sql, inserts);
-                        connection.query(sql, function(err, results_insert){
-                            getCreatedAt(injection.id, function(created_at){
-                                injection.created_at = created_at;
-                                cbAsync(null, injection);
-                            });
+                        
+                        getCreatedAt(injection.id, function(created_at){
+                            injection.created_at = created_at;
+                            cbAsync(null, injection);
                         });
                     });
                 }
@@ -314,6 +296,45 @@ exports.getTitle = function(rev_id, callback){
         );
     };
     
+    exports.addToDeck = function(deck_id, slide_id, position, callback){
+        
+        async.waterfall([
+            function getPositionNewSlide(cbAsync){
+                if (!position){
+                    var sql = "SELECT max(position) AS max_position FROM deck_content WHERE ?";
+                    var inserts = [{deck_revision_id : deck_id}];
+                    sql = mysql.format(sql, inserts);
+
+                    connection.query(sql, function(err, results){
+                        position = results[0].max_position + 1;
+                        cbAsync(err, position);
+                    });
+                }else{
+                    var sql = "UPDATE deck_content SET position = position + 1 WHERE deck_revision_id = ? AND position >= ? ORDER BY position DESC";
+                    var inserts = [deck_id, position];
+                    sql = mysql.format(sql, inserts);
+
+                    connection.query(sql, function(err, results){
+                         cbAsync(err, position);
+                    });
+                }
+            },
+            function addToDeckContent(position, cbAsync){
+                var sql = "INSERT into deck_content SET ?";
+                var inserts = [{deck_revision_id :deck_id, item_id : slide_id, item_type: 'slide', position: position}];
+                sql = mysql.format(sql, inserts);
+                connection.query(sql, function(err, results_insert){
+                    
+                        cbAsync(null, position);
+                });
+            }
+        ], 
+        
+        function(err, result){
+            callback('done');
+        });
+    };
+    
     exports.update = function(slide_metadata, callback){
         if (slide_metadata.no_new_revision === 'true'){
             var sql = "UPDATE slide_revision SET ? WHERE ?";
@@ -322,7 +343,6 @@ exports.getTitle = function(rev_id, callback){
             
             connection.query(sql, function(err, results){
                 if (err) callback(err);
-                console.log(slide_metadata);
                 callback(null, slide_metadata);
             });
         }else{
@@ -338,65 +358,63 @@ exports.getTitle = function(rev_id, callback){
             if (!injection.language) injection.language = null;
             injection.parent_deck_id = slide_metadata.parent_deck_id;
 
-            async.waterfall(
-                [
-                    function getPositionNewSlide(cbAsync){
-                        var sql = "SELECT position FROM deck_content WHERE ?? = ? AND ?? = ? AND ?? = ?";
-                        var inserts = ['deck_revision_id', injection.parent_deck_id, 'item_id', injection.id, 'item_type', 'slide'];
+            async.waterfall([
+                function getPositionNewSlide(cbAsync){
+                    var sql = "SELECT position FROM deck_content WHERE ?? = ? AND ?? = ? AND ?? = ?";
+                    var inserts = ['deck_revision_id', injection.parent_deck_id, 'item_id', injection.id, 'item_type', 'slide'];
+                    sql = mysql.format(sql, inserts);
+
+                    connection.query(sql, function(err, results){
+                        injection.position = results[0].position;
+                        cbAsync(err, injection);
+                    });
+                },
+
+                function getBranchNewSlide(injection, cbAsync) {
+                    var sql = "SELECT branch_id FROM slide_revision WHERE ?";
+                    var inserts = [{id : injection.id}];
+                    sql = mysql.format(sql, inserts);
+                    connection.query(sql, function(err, results){
+                        injection.branch_id = results[0].branch_id;
+                        cbAsync(err, injection);
+                    });
+                },
+                function saveSlide(injection, cbAsync){
+                    var deck_revision_id = injection.parent_deck_id;
+                    delete injection.parent_deck_id;
+                    delete injection.position; 
+                    var old_id = injection.id;
+                    injection.based_on = old_id;
+                    delete injection.id;
+                    var sql = "INSERT into slide_revision SET ?";
+                    var inserts = [injection];
+                    sql = mysql.format(sql, inserts);
+
+                    connection.query(sql, function(err, qresults){
+                        if (err) callback(err);
+
+                        injection.id = qresults.insertId;
+
+                        delete injection.branch_id;
+                        delete injection.branch_owner;
+                        delete injection.language;
+                        delete injection.user_id;
+                        delete injection.based_on;
+
+                        var sql = "UPDATE deck_content SET ? WHERE ?? = ? AND ?? = ? AND ?? = ?";
+                        var inserts = [{item_id : injection.id}, 'deck_revision_id', deck_revision_id, 'item_id', old_id, 'item_type' , 'slide'];
                         sql = mysql.format(sql, inserts);
-                        
-                        connection.query(sql, function(err, results){
-                            injection.position = results[0].position;
-                            cbAsync(err, injection);
-                        });
-                    },
+                        connection.query(sql, function(err, results_insert){
 
-                    function getBranchNewSlide(injection, cbAsync) {
-                        var sql = "SELECT branch_id FROM slide_revision WHERE ?";
-                        var inserts = [{id : injection.id}];
-                        sql = mysql.format(sql, inserts);
-                        connection.query(sql, function(err, results){
-                            injection.branch_id = results[0].branch_id;
-                            cbAsync(err, injection);
-                        });
-                    },
-                    function saveSlide(injection, cbAsync){
-                        var deck_revision_id = injection.parent_deck_id;
-                        delete injection.parent_deck_id;
-                        delete injection.position; 
-                        var old_id = injection.id;
-                        injection.based_on = old_id;
-                        delete injection.id;
-                        var sql = "INSERT into slide_revision SET ?";
-                        var inserts = [injection];
-                        sql = mysql.format(sql, inserts);
-                        
-                        connection.query(sql, function(err, qresults){
-                            if (err) callback(err);
-
-                            injection.id = qresults.insertId;
-                            
-                            delete injection.branch_id;
-                            delete injection.branch_owner;
-                            delete injection.language;
-                            delete injection.user_id;
-                            delete injection.based_on;
-
-                            var sql = "UPDATE deck_content SET ? WHERE ?? = ? AND ?? = ? AND ?? = ?";
-                            var inserts = [{item_id : injection.id}, 'deck_revision_id', deck_revision_id, 'item_id', old_id, 'item_type' , 'slide'];
-                            sql = mysql.format(sql, inserts);
-                            connection.query(sql, function(err, results_insert){
-                                
-                                getCreatedAt(injection.id, function(created_at){
-                                    injection.created_at = created_at;
-                                    cbAsync(null, injection);
-                                })
-
-                            });
+                            getCreatedAt(injection.id, function(created_at){
+                                injection.created_at = created_at;
+                                cbAsync(null, injection);
+                            })
 
                         });
-                    }
-                ], 
+
+                    });
+                }], 
                 function asyncComplete(err, result) {
                     callback(err, result);  
                 }
@@ -406,8 +424,8 @@ exports.getTitle = function(rev_id, callback){
     };
     
     exports.translate = function(user_id, slide_id, target, callback){
+        
         var translated = {};
-        translated.language = target;
         
         
         async.waterfall([
@@ -420,15 +438,44 @@ exports.getTitle = function(rev_id, callback){
             function translate_title(metadata, cbAsync){
                 googleTranslate.translate(metadata.title, target, function(err, translation){
                     translated.title = translation.translatedText;
-                    cbAsync(null, translated);
+                    cbAsync(err, metadata);
+                });
+            },
+            
+            function translate_body(metadata, cbAsync){
+                var string = formatForTranslation(metadata.body);
+                if (string.length > 4999){
+                    string = splitBody(string);
+                }
+                googleTranslate.translate(string, target, function(err, translation){
+                    var translatedText = '';
+                    if (err) cbAsync(err);
+                    if (translation.length > 1){
+                        
+                        translation.forEach(function(chunk){
+                            translatedText += chunk.translatedText;
+                        });
+                    }else{
+                        translatedText = translation.translatedText;
+                    }
+                    console.log(translatedText);
+                    translated.body = translatedText;
+                    cbAsync(err, metadata);
+                });
+            },
+            function save(metadata, cbAsync){
+                translated.user_id = user_id;
+                translated.translated_from_revision = slide_id;
+                translated.translation_status = 'in_progress';
+                exports.new(translated, function(err, saved){
+                    translated.id = saved.id;
+                    cbAsync(err, translated);
                 });
             }
         ],
         function asyncComplete(err, translated){
-            callback(translated);
+            callback(err, translated);
         });
-        
-        
     };
 
 

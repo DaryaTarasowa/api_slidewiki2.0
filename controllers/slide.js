@@ -25,7 +25,11 @@ exports.getTags = function(req, res) {
 };
 
 exports.newSlide = function(req, res){
-    slide.new(req.body, function(err, new_slide){res.json(new_slide)});
+    slide.new(req.body, function(err, new_slide){
+        slide.addToDeck(req.body.parent_deck_id, new_slide.id, req.body.position, function(result){
+            res.json(new_slide);
+        })
+    });
 };
 
 exports.updateSlide = function(req, res){
