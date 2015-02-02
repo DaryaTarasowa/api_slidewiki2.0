@@ -18,6 +18,43 @@ function getCreatedAt(id, callback){
     });
 }
 
+function getBranchId(slide_id, callback){
+    var sql = "SELECT branch_id FROM ?? WHERE ?? = ? LIMIT 1";
+    var inserts = ['slide_revision', 'id', slide_id];
+    sql = mysql.format(sql, inserts);
+    
+    connection.query(sql, function(err, results) {
+        if (err) callback(err);
+        callback(null, results[0].branch_id);
+    });
+}
+
+function getAllRevisions(rev_id, callback){
+    getBranchId(rev_id, function(branch_id){
+        var sql = "SELECT id, title, translated_from, translated_from_revision, body, created_at, user_id FROM ?? WHERE ?? = ? ORDER BY created_at DESC";
+        var inserts = ['slide_revision', 'branch_id', branch_id];
+        sql = mysql.format(sql, inserts);
+
+        connection.query(sql, function(err, results) {
+            if (err) callback(err);
+            callback(null, results);
+        });
+    });
+}
+
+function getLastRevision(rev_id, callback){
+    getBranchId(rev_id, function(branch_id){
+        var sql = "SELECT id, title, translated_from, translated_from_revision, body, created_at, user_id FROM ?? WHERE ?? = ? ORDER BY created_at DESC LIMIT 1";
+        var inserts = ['slide_revision', 'branch_id', branch_id];
+        sql = mysql.format(sql, inserts);
+
+        connection.query(sql, function(err, results) {
+            if (err) callback(err);
+            callback(null, results[0]);
+        });
+    });
+}
+
 function getContent (rev_id, callback){
     //gets the content of a slide, returns the cb of content
 
@@ -257,6 +294,9 @@ exports.getTitle = function(rev_id, callback){
         injection.branch_owner = slide_metadata.user_id;
         injection.language = slide_metadata.language;
         if (!injection.language) injection.language = null;
+        injection.translated_from = slide_metadata.translated_from;
+        injection.translated_from_revision = slide_metadata.translated_from_revision;
+        injection.translation_status = slide_metadata.translation_status;
         
         
         async.waterfall(
@@ -423,21 +463,33 @@ exports.getTitle = function(rev_id, callback){
         }
     };
     
-    exports.translate = function(user_id, slide_id, target, callback){
+    exports.translate = function(user_id, slide_id, source, target, callback){
         
         var translated = {};
         
-        
+        console.log('2' + slide_id);
         async.waterfall([
             function getSlideMetadata(cbAsync){
                 exports.getMetadata(slide_id, function(metadata){
+                    
+                    cbAsync(null, metadata);
+                });
+            },
+            
+            function getTargetName(metadata, cbAsync){
+                
+                lib.getLanguages(function(err, languageArray){
+                    var targetForDB = languageArray[target];
+                    translated.language = target + '-' + targetForDB;
+                    
                     cbAsync(null, metadata);
                 });
             },
             
             function translate_title(metadata, cbAsync){
-                googleTranslate.translate(metadata.title, target, function(err, translation){
+                googleTranslate.translate(metadata.title, source, target, function(err, translation){
                     translated.title = translation.translatedText;
+                    
                     cbAsync(err, metadata);
                 });
             },
@@ -447,7 +499,7 @@ exports.getTitle = function(rev_id, callback){
                 if (string.length > 4999){
                     string = splitBody(string);
                 }
-                googleTranslate.translate(string, target, function(err, translation){
+                googleTranslate.translate(string, source, target, function(err, translation){
                     var translatedText = '';
                     if (err) cbAsync(err);
                     if (translation.length > 1){
@@ -458,19 +510,22 @@ exports.getTitle = function(rev_id, callback){
                     }else{
                         translatedText = translation.translatedText;
                     }
-                    console.log(translatedText);
                     translated.body = translatedText;
                     cbAsync(err, metadata);
                 });
-            },
+            },            
             function save(metadata, cbAsync){
+                console.log('3' + slide_id);
                 translated.user_id = user_id;
                 translated.translated_from_revision = slide_id;
                 translated.translation_status = 'in_progress';
-                exports.new(translated, function(err, saved){
-                    translated.id = saved.id;
-                    cbAsync(err, translated);
-                });
+                getBranchId(slide_id, function(err, branch_id){
+                    translated.translated_from = branch_id;
+                    exports.new(translated, function(err, saved){
+                        translated.id = saved.id;
+                        cbAsync(err, translated);
+                    });
+                });                
             }
         ],
         function asyncComplete(err, translated){

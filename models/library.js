@@ -1,4 +1,5 @@
 var _ = require('underscore');
+var googleTranslate = require('google-translate')('AIzaSyBlwXdmxJZ__ZNScwe4zq5r3qh3ebXb26k');
 
 
     
@@ -44,6 +45,19 @@ var _ = require('underscore');
           }
         });
         return o;
+    };
+    
+    exports.getLanguages = function(callback){
+        //todo caching
+        googleTranslate.getSupportedLanguages('en', function(err, languages){
+            
+            var lookup = {};
+            for (var i = 0; i < languages.length;  i++) {
+                lookup[languages[i].language] = languages[i].name;
+            }
+            
+            callback(err, lookup);
+        });
     };
     
 

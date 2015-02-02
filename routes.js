@@ -37,10 +37,10 @@ module.exports = function(app, passport) {
                                         res.json(result);
                                     });
                                     break;
-                        case 'slide' : slideController.translate(req.user.id, req.params.id, req.params.target, function(err, result){
-                                        res.json(result);
-                                    });
-                                    break;
+//                        case 'slide' : slideController.translate(req.user.id, req.params.id, req.params.target, function(err, result){
+//                                        res.json(result);
+//                                    });
+//                                    break;
                     }
                 });
         

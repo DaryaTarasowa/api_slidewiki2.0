@@ -37,7 +37,8 @@ var googleTranslate = require('google-translate')('AIzaSyBlwXdmxJZ__ZNScwe4zq5r3
         });	
     };
     
-    function translateContent(user_id, deck_id, target, metadata, callback){
+    function translateContent(user_id, deck_id, source, target, metadata, callback){
+   
         getChildren(deck_id, function(children){
             children.forEach(function(child, index){
                 
@@ -51,8 +52,8 @@ var googleTranslate = require('google-translate')('AIzaSyBlwXdmxJZ__ZNScwe4zq5r3
                     });
                     
                 }else{
-                    slide.translate(user_id, child.id, target, function(err, translated){
-                        console.log(child);
+                    slide.translate(user_id, child.id, source, target, function(err, translated){
+                        console.log(child.id);
                         children[index].id = translated.id;
 
                         if (index === children.length - 1){
@@ -166,7 +167,7 @@ var googleTranslate = require('google-translate')('AIzaSyBlwXdmxJZ__ZNScwe4zq5r3
     };
     
     exports.getMetadataShort = function(id, callback){
-        var sql = "SELECT id, title, created_at, description, footer_text, origin FROM ?? WHERE ?? = ? LIMIT 1";
+        var sql = "SELECT id, title, created_at, language, description, footer_text, origin FROM ?? WHERE ?? = ? LIMIT 1";
         var inserts = ['deck_revision', 'id', id];
         sql = mysql.format(sql, inserts);
         
@@ -359,7 +360,7 @@ var googleTranslate = require('google-translate')('AIzaSyBlwXdmxJZ__ZNScwe4zq5r3
     exports.new = function(deck, callback){
         deck.branch_owner = deck.user_id;
         async.waterfall([
-            function getBranchId(cbAsync){
+            function getNewBranchId(cbAsync){
                 var sql = "SELECT max(branch_id) AS max_brunch FROM deck_revision WHERE 1";
                 connection.query(sql, function(err, results){
                     deck.branch_id = results[0].max_brunch + 1;
@@ -379,7 +380,7 @@ var googleTranslate = require('google-translate')('AIzaSyBlwXdmxJZ__ZNScwe4zq5r3
             }
         ],
         function AsyncComplete(err, deck){
-            callback(deck);
+            callback(err, deck);
         });
     };
     
@@ -422,15 +423,41 @@ var googleTranslate = require('google-translate')('AIzaSyBlwXdmxJZ__ZNScwe4zq5r3
         });
             
     };
-    
-    function translateMetadata(user_id, deck_id, target, callback){
+    function getBranchId(deck_id, callback){
+        var sql = "SELECT branch_id FROM ?? WHERE ?? = ? LIMIT 1";
+        var inserts = ['deck_revision', 'id', deck_id];
+        sql = mysql.format(sql, inserts);
+
+        connection.query(sql, function(err, results) {
+            if (err) callback(err);
+                callback(null, results[0].branch_id);
+            });
+        }
         
+    function translateMetadata(user_id, deck_id, target, callback){
+        var source = '';
         async.waterfall([
             function getDeckMetadata(cbAsync){
                 exports.getMetadataShort(deck_id, function(metadata){
-                    metadata.language = target;
+                    
                     delete metadata.created_at;
                     delete metadata.id;
+                    console.log('getmetadata');
+                    cbAsync(null, metadata);
+                });
+            },
+            
+            function getSourceCode(metadata, cbAsync){
+                source = metadata.language.split('-')[0];
+                cbAsync(null, metadata);
+            },
+            
+            function getTargetName(metadata, cbAsync){
+                
+                lib.getLanguages(function(err, languageArray){
+                    
+                    var targetForDB = languageArray[target];
+                    metadata.language = target + '-' + targetForDB;
                     cbAsync(null, metadata);
                 });
             },
@@ -438,7 +465,7 @@ var googleTranslate = require('google-translate')('AIzaSyBlwXdmxJZ__ZNScwe4zq5r3
             function translate_title(metadata, cbAsync){
                 
                 if (!metadata.title) {metadata.title = '';}
-                googleTranslate.translate(metadata.title, target, function(err, translation){
+                googleTranslate.translate(metadata.title, source, target, function(err, translation){
                     
                     metadata.title = translation.translatedText;
                     cbAsync(null, metadata);
@@ -447,14 +474,14 @@ var googleTranslate = require('google-translate')('AIzaSyBlwXdmxJZ__ZNScwe4zq5r3
             
             function translate_desciption(metadata, cbAsync){
                 if (!metadata.description) {metadata.description = '';}
-                googleTranslate.translate(metadata.description, target, function(err, translation){
+                googleTranslate.translate(metadata.description, source, target, function(err, translation){
                     metadata.description = translation.translatedText;
                     cbAsync(null, metadata);
                 });
             },
             function translate_footer(metadata, cbAsync){
                 if (!metadata.footer_text) {metadata.footer_text = '';}
-                googleTranslate.translate(metadata.footer_text, target, function(err, translation){
+                googleTranslate.translate(metadata.footer_text, source, target, function(err, translation){
                     metadata.footer_text = translation.translatedText;
                     cbAsync(null, metadata);
                 });
@@ -463,10 +490,15 @@ var googleTranslate = require('google-translate')('AIzaSyBlwXdmxJZ__ZNScwe4zq5r3
                 metadata.user_id = user_id;
                 metadata.translated_from_revision = deck_id;
                 metadata.translation_status = 'in_progress';
-                exports.new(metadata, function(saved){
-                    metadata.id = saved.id;
-                    cbAsync(null, metadata);
-                });
+                getBranchId(deck_id, function(err, branch_id){
+                    
+                    metadata.translated_from = branch_id;
+                    exports.new(metadata, function(err, saved){
+                        metadata.id = saved.id;
+                        metadata.source = source;
+                        cbAsync(err, metadata);
+                    });
+                })                
             },
         ], function(err, result){
             callback(err, result);
@@ -474,7 +506,7 @@ var googleTranslate = require('google-translate')('AIzaSyBlwXdmxJZ__ZNScwe4zq5r3
     }
     
     exports.translate = function(user_id, deck_id, target, callback){        
-        
+       
         
         async.waterfall([
             
@@ -483,12 +515,10 @@ var googleTranslate = require('google-translate')('AIzaSyBlwXdmxJZ__ZNScwe4zq5r3
             },
             
             function save_content(metadata, cbAsync){
-                 translateContent(user_id, deck_id, target, metadata, cbAsync);
+                 translateContent(user_id, deck_id, metadata.source, target, metadata, cbAsync);
             },
             
             function saveChildren(translated, children, cbAsync){
-                console.log(translated);
-                console.log(children);
                 exports.addContent(translated.id, children, function(err, results){
                     cbAsync(err, translated);
                 });
