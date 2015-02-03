@@ -68,7 +68,7 @@ var googleTranslate = require('google-translate')('AIzaSyBlwXdmxJZ__ZNScwe4zq5r3
                     }
                 });
             }else{
-                callback('No children of this deck!!');
+                callback('No children of deck ' + deck_id);
             }
             
         });
@@ -86,7 +86,7 @@ var googleTranslate = require('google-translate')('AIzaSyBlwXdmxJZ__ZNScwe4zq5r3
                 if (results.length){
                     callback(null, results[0].title);
                 }else{
-                    callback('Deck not found!');
+                    callback('Not found deck '+ rev_id);
                 }                
             }); 
         };        
@@ -122,7 +122,7 @@ var googleTranslate = require('google-translate')('AIzaSyBlwXdmxJZ__ZNScwe4zq5r3
                         }
                         else{ 
                             slide.getTitle(child.id, function(err, title_str){
-                                if (err) callback(err);                                
+                                if (err) callback(err);        
                                 
                                 child.title = title_str;
                                 acc.children[child.position - 1] = child;
@@ -135,7 +135,7 @@ var googleTranslate = require('google-translate')('AIzaSyBlwXdmxJZ__ZNScwe4zq5r3
                         }
                     });
                 }else{
-                    callback('Deck has no children');
+                    callback('No children for deck ' + acc.id);
                 }
             });
         });
@@ -152,16 +152,23 @@ var googleTranslate = require('google-translate')('AIzaSyBlwXdmxJZ__ZNScwe4zq5r3
             if (results.length){
                 exports.getTree(results[0].id, {}, function(err, tree){ //getting number of slides
                     if (err) callback(err);
+                    if (tree){
+                        if (tree.children.length){
+                            var numberOfSlides = 0;
+                            tree.children.forEach(function(child){ 
+                                ifSlideThen(child, function(){
+                                    numberOfSlides++;                       
+                                });                    
+                            });
+                            results[0].numberOfSlides = numberOfSlides;
+                            callback(null, results[0]);
+                        }else{
+                            callback('No children for deck ' + results[0].id);
+                        }
+                    }else{
+                        callback(err);
+                    }
                     
-                    var numberOfSlides = 0;
-                    tree.children.forEach(function(child){ 
-                        ifSlideThen(child, function(){
-                            numberOfSlides++;                       
-                        });                    
-                    });
-                    results[0].numberOfSlides = numberOfSlides;
-                    callback(null, results[0]);
-                                       
                 });     
             }else{
                 callback('Deck not found!');
@@ -180,7 +187,7 @@ var googleTranslate = require('google-translate')('AIzaSyBlwXdmxJZ__ZNScwe4zq5r3
             if (results.length){
                 callback(null, results[0]);    
             }else{
-                callback('Deck not found!');
+                callback('Not found deck ' + id);
             }                   
         });
     };
@@ -193,13 +200,17 @@ var googleTranslate = require('google-translate')('AIzaSyBlwXdmxJZ__ZNScwe4zq5r3
         
         exports.getTree(rev_id, {}, function(err, tree){
             if (err) callback(err);
-            
-            tree.children.forEach(function(child){
-                ifSlideThen(child, function(child){
-                    slides.push(child.id);
+            if (tree){
+                tree.children.forEach(function(child){
+                    ifSlideThen(child, function(child){
+                        slides.push(child.id);
+                    });
                 });
-            });
-            callback(null, slides);
+                callback(null, slides);
+            }else{
+                callback('No tree has been built for deck ' + rev_id);
+            }
+            
         });
     };
     
@@ -256,7 +267,7 @@ var googleTranslate = require('google-translate')('AIzaSyBlwXdmxJZ__ZNScwe4zq5r3
                     };
                 });
                 if (slides.length === 0){
-                    callback('A deck with the rev_id does not have slides!');
+                    callback('No slides in deck ' + id);
                 }
             }                       
             
@@ -285,7 +296,7 @@ var googleTranslate = require('google-translate')('AIzaSyBlwXdmxJZ__ZNScwe4zq5r3
                 exports.getAllSlides(rev_id, function(err, slide_ids){ //get contributors of slides
                     if (err) cbAsync(err);
                     
-                    if (slide_ids.length){
+                    if (slide_ids){
                         slide_ids.forEach(function(slide_id, index){
                             cbs++;
                             slide.getContributorsShort(slide_id, [], function(err, slide_contributors){
@@ -298,7 +309,7 @@ var googleTranslate = require('google-translate')('AIzaSyBlwXdmxJZ__ZNScwe4zq5r3
                             });
                         });
                     }else{
-                        cbAsync('No slides found');
+                        cbAsync('No slides found for deck ' + rev_id);
                     }
                 });
             },
@@ -309,14 +320,19 @@ var googleTranslate = require('google-translate')('AIzaSyBlwXdmxJZ__ZNScwe4zq5r3
                         user.enrich(element, function(err, enriched){
                             if (err) cbAsync(err);
                             
-                            slide_contributors[index] = enriched;
+                            if (enriched){
+                               slide_contributors[index] = enriched; 
+                            }else{
+                                delete slide_contributors[index];
+                            }
+                            
                             if (index === slide_contributors.length - 1){
                                 cbAsync(null, owner_id, slide_contributors);
                             }
                         });
                     });
                 }else{
-                    cbAsync('No contributors!');
+                    cbAsync('No contributors for deck ' + rev_id);
                 }
             },
             
@@ -326,9 +342,12 @@ var googleTranslate = require('google-translate')('AIzaSyBlwXdmxJZ__ZNScwe4zq5r3
                 user.enrich(owner_id, function(err, enriched){
                     if (err) cbAsync(err);
                     
-                    slide_contributors.push(enriched);
+                    if (enriched){
+                        slide_contributors.push(enriched);
+                    }
                     var contributors = lib.arrUnique(slide_contributors);
                     contributors.forEach(function(element, index){
+                        
                         contributors[index].role = ['contributor'];
                         if (element.id === owner_id){
                             contributors[index].role.push('creator');
@@ -440,7 +459,7 @@ var googleTranslate = require('google-translate')('AIzaSyBlwXdmxJZ__ZNScwe4zq5r3
                 }
             });
         }else{
-            callback('No children given!');
+            callback('No children given for deck ' + deck_id);
         }
     };
     
@@ -454,7 +473,7 @@ var googleTranslate = require('google-translate')('AIzaSyBlwXdmxJZ__ZNScwe4zq5r3
             if (results.length){
                 callback(null, results[0].branch_id);
             }else{
-                callback('Deck not found');
+                callback('Not found deck ' + deck_id);
             }
         });
     }

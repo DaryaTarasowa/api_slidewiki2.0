@@ -59,7 +59,7 @@ var lib = require('./library');
             if (results.length){
                 callback(null, results[0]);
             }else{
-                callback('User not find');
+                callback('LocalUser not found');
             } 
         });
     };
@@ -75,7 +75,7 @@ var lib = require('./library');
             if (results.length){
                 callback(null, results[0]);
             }else{
-                callback('User not find!');
+                callback('User not found');
             } 
         });
     };
@@ -91,7 +91,7 @@ var lib = require('./library');
             if (results.length){
                 callback(null, results[0]);
             }else{
-                callback('User not find!');
+                callback('FBUser not found ');
             } 
         });
     };
@@ -131,7 +131,7 @@ var lib = require('./library');
                     }
                 }
             }else{
-                callback('User not found');
+                callback('User not found with id ' + id);
             } 
         });
     };
@@ -199,7 +199,7 @@ var lib = require('./library');
                     callback(null, false);
                 }
             }else{
-                callback('Username not found!');
+                callback('Not found username ' + username);
             }                   
         });        
         

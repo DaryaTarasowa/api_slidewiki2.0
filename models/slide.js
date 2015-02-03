@@ -66,7 +66,7 @@ function getContent (rev_id, callback){
         if (results.length){
             callback(null, results[0].body);   
         }else{
-            callback('slide not found!');
+            callback('Not found slide with id ' + rev_id);
         }                         
     });        
 };
@@ -109,7 +109,7 @@ exports.getTitle = function(rev_id, callback){
                     });
                 };  
             }else{
-                callback('slide not found!');
+                callback('Not found slide with id ' + rev_id);
             }                          
         });
     };
@@ -157,17 +157,21 @@ exports.getTitle = function(rev_id, callback){
 
         connection.query(sql,function(err,results){
             if (err) callback(err);
-
-            if (results[0].based_on){      //this is not the first revision
-                contributors.push(results[0].user_id);                    
-                exports.getContributorsShort(results[0].based_on, contributors, function(err, result){
-                    callback(err, result);
-                });                                                              
-            }else{ 
-                contributors.push(results[0].user_id);               
-                contributors = lib.arrUnique(contributors);
-                callback(null, contributors);
+            if (results.length){
+                if (results[0].based_on){      //this is not the first revision
+                    contributors.push(results[0].user_id);                    
+                    exports.getContributorsShort(results[0].based_on, contributors, function(err, result){
+                        callback(err, result);
+                    });                                                              
+                }else{ 
+                    contributors.push(results[0].user_id);               
+                    contributors = lib.arrUnique(contributors);
+                    callback(null, contributors);
+                }
+            }else{
+                callback('Not found slide with id ' + rev_id);
             }
+            
         });
     };
     
@@ -277,7 +281,7 @@ exports.getTitle = function(rev_id, callback){
                     callback(null, results[0]);
                 }); 
             }else{
-                callback('Slide not found');
+                callback('Not found slide with id ' + id);
             }            
         });
     };

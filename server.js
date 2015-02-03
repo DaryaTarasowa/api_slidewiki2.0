@@ -42,6 +42,11 @@ function start(){
         app.use(passport.initialize());
         app.use(passport.session()); // persistent login sessions
         app.use(flash()); // use connect-flash for flash messages stored in session
+        
+        app.use(function(err, req, res, next){
+            console.error(err.stack);
+            res.status(500).send('Something broke!');
+        });
 	
 	var port = require('./config').port;
 	
