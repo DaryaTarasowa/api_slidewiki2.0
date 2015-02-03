@@ -2,7 +2,10 @@ var deck = require('../models/deck');
 
 exports.getTree = function(req, res) {
     if (parseInt(req.params.rev_id) > 0){
-        deck.getTree(req.params.rev_id, {}, function(tree) {res.json(tree);});
+        deck.getTree(req.params.rev_id, {}, function(err, tree) {
+            if (err) res.json({error : err});
+            res.json(tree);
+        });
     }else{
         res.json({error : "rev_id is not valid!"});
     }         		
@@ -10,7 +13,10 @@ exports.getTree = function(req, res) {
 
 exports.getMetadata = function(req, res){
     if (parseInt(req.params.rev_id) > 0){
-        deck.getMetadata(req.params.rev_id, function (metadata) {res.json(metadata);});
+        deck.getMetadata(req.params.rev_id, function (err, metadata) {
+            if (err) res.json({error : err});
+            res.json(metadata);
+        });
     }else{
         res.json({error : "rev_id is not valid!"});
     }
@@ -18,7 +24,10 @@ exports.getMetadata = function(req, res){
 
 exports.getContributors = function(req, res) {
     if (parseInt(req.params.rev_id) > 0){
-        deck.getContributors(req.params.rev_id, function(contributors) {res.json(contributors);});
+        deck.getContributors(req.params.rev_id, function(err, contributors) {
+            if (err) res.json({error : err});
+            res.json(contributors);
+        });
     }else{
         res.json({error : "rev_id is not valid!"});
     }
@@ -26,7 +35,10 @@ exports.getContributors = function(req, res) {
 
 exports.getTags = function(req, res) {
     if (parseInt(req.params.rev_id) > 0){
-        deck.getTags(req.params.rev_id, function(tags) {res.json(tags);});
+        deck.getTags(req.params.rev_id, function(err, tags) {
+            if (err) res.json({error : err});
+            res.json(tags);
+        });
     }else{
         res.json({error : "rev_id is not valid!"});
     }
@@ -35,9 +47,12 @@ exports.getTags = function(req, res) {
 exports.getSlides = function(req, res) {
     if (parseInt(req.params.rev_id) > 0 && parseInt(req.params.limit) >= 0 && parseInt(req.params.offset) >= 0){
         if (req.params.onlyIDs === 'true' || req.params.onlyIDs === 'false'){
-            deck.getSlides(req.params.rev_id, req.params.offset, req.params.limit, req.params.onlyIDs, function(slides){res.json(slides);});
+            deck.getSlides(req.params.rev_id, req.params.offset, req.params.limit, req.params.onlyIDs, function(err, slides){
+                if (err) res.json({error : err});
+                res.json(slides);
+            });
         }else{
-            res.json('Error: onlyIDs parameter is not valid (should be true or false)!');
+            res.json({error: 'onlyIDs parameter is not valid (should be true or false)!'});
         } 
     }else{
         res.json({error : "rev_id and/or offset and/or limit is not valid!"});

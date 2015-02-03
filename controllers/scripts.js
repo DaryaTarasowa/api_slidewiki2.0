@@ -4,7 +4,10 @@ var slide = require('../models/slide');
 
 exports.setAllTitles = function(req, res) {
             
-    slide.setAllTitles(function(response) {res.json(response);});		
+    slide.setAllTitles(function(err, response) {
+        if (err) res.json({error : err});
+        res.json(response);
+    });		
 };
 
 

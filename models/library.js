@@ -50,13 +50,14 @@ var googleTranslate = require('google-translate')('AIzaSyBlwXdmxJZ__ZNScwe4zq5r3
     exports.getLanguages = function(callback){
         //todo caching
         googleTranslate.getSupportedLanguages('en', function(err, languages){
+            if (err) callback(err);
             
             var lookup = {};
             for (var i = 0; i < languages.length;  i++) {
                 lookup[languages[i].language] = languages[i].name;
             }
             
-            callback(err, lookup);
+            callback(null, lookup);
         });
     };
     

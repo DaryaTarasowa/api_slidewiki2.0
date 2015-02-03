@@ -13,8 +13,7 @@ function getCreatedAt(id, callback){
     sql = mysql.format(sql, inserts);
     
     connection.query(sql, function(err, results) {
-        if (err) callback({error : err});
-        callback(results[0].created_at);
+        callback(err, results[0].created_at);
     });
 }
 
@@ -24,33 +23,33 @@ function getBranchId(slide_id, callback){
     sql = mysql.format(sql, inserts);
     
     connection.query(sql, function(err, results) {
-        if (err) callback(err);
-        callback(null, results[0].branch_id);
+        callback(err, results[0].branch_id);
     });
 }
 
 function getAllRevisions(rev_id, callback){
-    getBranchId(rev_id, function(branch_id){
+    getBranchId(rev_id, function(err, branch_id){
+        if (err) callback(err);
+        
         var sql = "SELECT id, title, translated_from, translated_from_revision, body, created_at, user_id FROM ?? WHERE ?? = ? ORDER BY created_at DESC";
         var inserts = ['slide_revision', 'branch_id', branch_id];
         sql = mysql.format(sql, inserts);
 
         connection.query(sql, function(err, results) {
-            if (err) callback(err);
-            callback(null, results);
+            callback(err, results);
         });
     });
 }
 
 function getLastRevision(rev_id, callback){
-    getBranchId(rev_id, function(branch_id){
+    getBranchId(rev_id, function(err, branch_id){
+        if (err) callback(err);
         var sql = "SELECT id, title, translated_from, translated_from_revision, body, created_at, user_id FROM ?? WHERE ?? = ? ORDER BY created_at DESC LIMIT 1";
         var inserts = ['slide_revision', 'branch_id', branch_id];
         sql = mysql.format(sql, inserts);
 
         connection.query(sql, function(err, results) {
-            if (err) callback(err);
-            callback(null, results[0]);
+            callback(err, results[0]);
         });
     });
 }
@@ -73,9 +72,14 @@ function getContent (rev_id, callback){
 };
 
 function formatForTranslation(body){
-    body = body.trim().replace( /  +/g, ' ' ); //removing double spaces and trimming
-    body = body.replace(/\r|\n/g, '');
-    return body;
+    if (body.length){
+        body = body.trim().replace( /  +/g, ' ' ); //removing double spaces and trimming
+        body = body.replace(/\r|\n/g, '');
+        return body;
+    }else{
+        return '';
+    }
+    
 }
 
 function splitBody(body){
@@ -91,23 +95,21 @@ exports.getTitle = function(rev_id, callback){
         var inserts = ['slide_revision', 'id', rev_id];
         sql = mysql.format(sql, inserts);
         connection.query(sql, function(err, results) {
-            if (err) callback({error : err});
+            if (err) callback(err);
             
             if (results.length){
                 if (results[0].title){
-                    callback(results[0].title);
+                    callback(null, results[0].title);
                 }else{
                     getContent(rev_id, function(err, content){
-                        if (err){
-                            callback(err);
-                        }
-                        exports.setTitleFromContent(rev_id, content, function(title){
-                            callback(title);
+                        if (err){callback(err);}
+                        exports.setTitleFromContent(rev_id, content, function(err, title){
+                            callback(err, title);
                         });
                     });
                 };  
             }else{
-                callback({error : 'slide not found!'});
+                callback('slide not found!');
             }                          
         });
     };
@@ -130,23 +132,19 @@ exports.getTitle = function(rev_id, callback){
             var inserts_title = ['slide_revision', title, 'id', rev_id]; //set title field (only tags)
             sql_title = mysql.format(sql_title, inserts_title);
             connection.query(sql_title, function(err, results) {
-                    if (err) callback({error : err});
+                if (err) callback(err);
 
-                    var inserts_content = ['slide_revision', content, 'id', rev_id]; //remove title from content
-                        sql_content = mysql.format(sql_content, inserts_content);
-                        connection.query(sql_content, function(err, results) {
-                            if (err) callback({error : err});
-                    
-                            callback(title);
-                    });                    
+                var inserts_content = ['slide_revision', content, 'id', rev_id]; //remove title from content
+                sql_content = mysql.format(sql_content, inserts_content);
+                connection.query(sql_content, function(err, results) {
+                    callback(err, title);
+                });                    
             }); 
         }else{ //no title is set in the content or empty title
             var inserts = ['slide_revision', 'Untitled', 'id', rev_id];
             sql = mysql.format(sql_title, inserts);
             connection.query(sql, function(err, results) {
-                if (err) callback({error : err});
-
-                callback('Untitled');
+                callback(err, 'Untitled');
             }); 
         }        
     };
@@ -158,18 +156,17 @@ exports.getTitle = function(rev_id, callback){
         sql = mysql.format(sql, inserts);
 
         connection.query(sql,function(err,results){
-            if (err) callback({error : err});
+            if (err) callback(err);
 
-            
             if (results[0].based_on){      //this is not the first revision
                 contributors.push(results[0].user_id);                    
-                exports.getContributorsShort(results[0].based_on, contributors, function(result){
-                    callback(result);
+                exports.getContributorsShort(results[0].based_on, contributors, function(err, result){
+                    callback(err, result);
                 });                                                              
             }else{ 
                 contributors.push(results[0].user_id);               
                 contributors = lib.arrUnique(contributors);
-                callback(contributors);
+                callback(null, contributors);
             }
         });
     };
@@ -181,56 +178,57 @@ exports.getTitle = function(rev_id, callback){
         sql = mysql.format(sql, inserts);
 
         connection.query(sql,function(err,results){
-            if (err) callback({error : err});
+            if (err) callback(err);
 
             
             if (results[0].based_on){      //this is not the first revision
                 contributors.push(results[0].user_id);                    
-                exports.getContributors(results[0].based_on, contributors, function(result){
-                    callback(result);
+                exports.getContributors(results[0].based_on, contributors, function(err, result){
+                    callback(err, result);
                 });                                                              
             }else{ 
                 contributors.push(results[0].user_id);               
                 contributors = lib.arrUnique(contributors);
                 contributors.forEach(function(element, index){
-                    user.enrich(element, function(enriched){
+                    user.enrich(element, function(err, enriched){
+                        if (err) callback(err);
                         contributors[index] = enriched;
                         contributors[index].role = ['contributor'];
                         if (element.id === results[0].user_id){
                             contributors[index].role.push('creator');
                             if (index === contributors.length - 1){
-                                callback(contributors);
+                                callback(null, contributors);
                             }
                         }else{
                             if (index === contributors.length - 1){
-                                callback(contributors);
+                                callback(null, contributors);
                             }
                         }
-                        
-                    })
-                })
+                    });
+                });
             }
         });
     };
     
     exports.getTags = function(rev_id, callback){
-            
-        var sql = 'SELECT tag FROM tag WHERE ?? = ? AND item_type = "slide"';
-        var inserts = ['item_id', rev_id];
+        
         var tags = [];
+        var sql = 'SELECT tag FROM tag WHERE ?? = ? AND item_type = "slide"';
+        var inserts = ['item_id', rev_id];        
         sql = mysql.format(sql, inserts);
+        
         connection.query(sql,function(err,results){
-            if (err) callback({error : err});
+            if (err) callback(err);
             
             if (results.length){
                 results.forEach(function(tag_object){
                     tags.push(tag_object.tag);
                     if (tags.length === results.length){
-                        callback(tags);
+                        callback(null, tags);
                     };
                 });  
             }else{
-                callback([]);
+                callback(null, []);
             }
                                
         });
@@ -244,20 +242,20 @@ exports.getTitle = function(rev_id, callback){
         var inserts = ['slide_revision'];
         sql = mysql.format(sql, inserts);
         connection.query(sql, function(err, results){
-            if (err) callback({error : err});
+            if (err) callback(err);
             
             results.forEach(function(element){   //results = all ids of the slides   
-                exports.getTitle(element.id, function(title){ //for each id call the getTitle
-                    if (title.error) callback(title);
+                exports.getTitle(element.id, function(err, title){ //for each id call the getTitle
+                    if (err) callback(err);
                     
                     result.push(title);
                     if (result.length === results.length){
-                        callback(result);
+                        callback(null, result);
                     }                    
                 });
             });
             if (result.length === results.length){
-                callback(result);
+                callback(null, result);
             }
         });
     };
@@ -269,17 +267,17 @@ exports.getTitle = function(rev_id, callback){
         var inserts = ['slide_revision', 'id', id];
         sql = mysql.format(sql, inserts);
         connection.query(sql, function(err, results) {
-            if (err) callback({error : err});
+            if (err) callback(err);
             
             if (results.length){
-                exports.getTitle(id, function(title){
-                    if (title.error) callback(title);
+                exports.getTitle(id, function(err, title){
+                    if (err) callback(err);
                     
                     results[0].title = title;
-                    callback(results[0]);
+                    callback(null, results[0]);
                 }); 
             }else{
-                callback({error :'Slide not found'});
+                callback('Slide not found');
             }            
         });
     };
@@ -304,8 +302,9 @@ exports.getTitle = function(rev_id, callback){
                 function getBranchNewSlide(cbAsync) {
                     var sql = "SELECT max(branch_id) AS max_brunch FROM slide_revision WHERE 1";
                     connection.query(sql, function(err, results){
+                        if (err) cbAsync(err);
                         injection.branch_id = results[0].max_brunch + 1;
-                        cbAsync(err, injection);
+                        cbAsync(null, injection);
                     });
                 },
                 function saveSlide(injection, cbAsync){
@@ -316,14 +315,15 @@ exports.getTitle = function(rev_id, callback){
                     
                     
                     connection.query(sql, function(err, qresults){
-                        if (err) callback(err);
+                        if (err) cbAsync(err);
 
                         injection.id = qresults.insertId;
                         delete injection.branch_id;
                         delete injection.branch_owner;
                         delete injection.language;
                         
-                        getCreatedAt(injection.id, function(created_at){
+                        getCreatedAt(injection.id, function(err, created_at){
+                            if (err) cbAsync(err);
                             injection.created_at = created_at;
                             cbAsync(null, injection);
                         });
@@ -337,7 +337,7 @@ exports.getTitle = function(rev_id, callback){
     };
     
     exports.addToDeck = function(deck_id, slide_id, position, callback){
-        
+        //todo: what it should return?
         async.waterfall([
             function getPositionNewSlide(cbAsync){
                 if (!position){
@@ -346,8 +346,9 @@ exports.getTitle = function(rev_id, callback){
                     sql = mysql.format(sql, inserts);
 
                     connection.query(sql, function(err, results){
+                        if (err) cbAsync(err);
                         position = results[0].max_position + 1;
-                        cbAsync(err, position);
+                        cbAsync(null, position);
                     });
                 }else{
                     var sql = "UPDATE deck_content SET position = position + 1 WHERE deck_revision_id = ? AND position >= ? ORDER BY position DESC";
@@ -365,7 +366,7 @@ exports.getTitle = function(rev_id, callback){
                 sql = mysql.format(sql, inserts);
                 connection.query(sql, function(err, results_insert){
                     
-                        cbAsync(null, position);
+                    cbAsync(err, position);
                 });
             }
         ], 
@@ -405,8 +406,9 @@ exports.getTitle = function(rev_id, callback){
                     sql = mysql.format(sql, inserts);
 
                     connection.query(sql, function(err, results){
+                        if (err) cbAsync(err);
                         injection.position = results[0].position;
-                        cbAsync(err, injection);
+                        cbAsync(null, injection);
                     });
                 },
 
@@ -415,8 +417,9 @@ exports.getTitle = function(rev_id, callback){
                     var inserts = [{id : injection.id}];
                     sql = mysql.format(sql, inserts);
                     connection.query(sql, function(err, results){
+                        if (err) cbAsync(err);
                         injection.branch_id = results[0].branch_id;
-                        cbAsync(err, injection);
+                        cbAsync(null, injection);
                     });
                 },
                 function saveSlide(injection, cbAsync){
@@ -431,7 +434,7 @@ exports.getTitle = function(rev_id, callback){
                     sql = mysql.format(sql, inserts);
 
                     connection.query(sql, function(err, qresults){
-                        if (err) callback(err);
+                        if (err) cbAsync(err);
 
                         injection.id = qresults.insertId;
 
@@ -445,11 +448,12 @@ exports.getTitle = function(rev_id, callback){
                         var inserts = [{item_id : injection.id}, 'deck_revision_id', deck_revision_id, 'item_id', old_id, 'item_type' , 'slide'];
                         sql = mysql.format(sql, inserts);
                         connection.query(sql, function(err, results_insert){
-
-                            getCreatedAt(injection.id, function(created_at){
+                            if (err) cbAsync(err);
+                            getCreatedAt(injection.id, function(err, created_at){
+                                if (err) cbAsync(err);
                                 injection.created_at = created_at;
                                 cbAsync(null, injection);
-                            })
+                            });
 
                         });
 
@@ -467,11 +471,11 @@ exports.getTitle = function(rev_id, callback){
         
         var translated = {};
         
-        console.log('2' + slide_id);
+        
         async.waterfall([
             function getSlideMetadata(cbAsync){
-                exports.getMetadata(slide_id, function(metadata){
-                    
+                exports.getMetadata(slide_id, function(err, metadata){
+                    if (err) cbAsync(err);
                     cbAsync(null, metadata);
                 });
             },
@@ -479,6 +483,7 @@ exports.getTitle = function(rev_id, callback){
             function getTargetName(metadata, cbAsync){
                 
                 lib.getLanguages(function(err, languageArray){
+                    if (err) cbAsync(err);
                     var targetForDB = languageArray[target];
                     translated.language = target + '-' + targetForDB;
                     
@@ -488,6 +493,7 @@ exports.getTitle = function(rev_id, callback){
             
             function translate_title(metadata, cbAsync){
                 googleTranslate.translate(metadata.title, source, target, function(err, translation){
+                    if (err) cbAsync(err);
                     translated.title = translation.translatedText;
                     
                     cbAsync(err, metadata);
@@ -500,8 +506,10 @@ exports.getTitle = function(rev_id, callback){
                     string = splitBody(string);
                 }
                 googleTranslate.translate(string, source, target, function(err, translation){
-                    var translatedText = '';
                     if (err) cbAsync(err);
+                    
+                    var translatedText = '';
+                    
                     if (translation.length > 1){
                         
                         translation.forEach(function(chunk){
@@ -511,17 +519,18 @@ exports.getTitle = function(rev_id, callback){
                         translatedText = translation.translatedText;
                     }
                     translated.body = translatedText;
-                    cbAsync(err, metadata);
+                    cbAsync(null, metadata);
                 });
             },            
             function save(metadata, cbAsync){
-                console.log('3' + slide_id);
                 translated.user_id = user_id;
                 translated.translated_from_revision = slide_id;
-                translated.translation_status = 'in_progress';
+                translated.translation_status = 'google';
                 getBranchId(slide_id, function(err, branch_id){
+                    if (err) cbAsync(err);
                     translated.translated_from = branch_id;
                     exports.new(translated, function(err, saved){
+                        if (err) cbAsync(err);
                         translated.id = saved.id;
                         cbAsync(err, translated);
                     });

@@ -31,37 +31,46 @@ var googleTranslate = require('google-translate')('AIzaSyBlwXdmxJZ__ZNScwe4zq5r3
         var inserts = ['deck_content', 'deck_revision_id', id];
         sql = mysql.format(sql, inserts);
         connection.query(sql, function(err, results) {
-            if (err) callback({error : err});
             
-            callback(results);
+            callback(err, results);
         });	
     };
     
     function translateContent(user_id, deck_id, source, target, metadata, callback){
    
-        getChildren(deck_id, function(children){
-            children.forEach(function(child, index){
+        getChildren(deck_id, function(err, children){
+            if (err) callback(err);
+            
+            if (children.length){
+                children.forEach(function(child, index){
                 
-                if (child.type === 'deck'){
-                    exports.translate(user_id, child.id, target, function(err, results){
-                        children[index].id = results.id;
-                        
-                        if (index === children.length - 1){
-                            callback(null, metadata, children);
-                        }
-                    });
-                    
-                }else{
-                    slide.translate(user_id, child.id, source, target, function(err, translated){
-                        console.log(child.id);
-                        children[index].id = translated.id;
+                    if (child.type === 'deck'){
+                        exports.translate(user_id, child.id, target, function(err, results){
+                            if (err) callback(err);
+                            
+                            children[index].id = results.id;
 
-                        if (index === children.length - 1){
-                            callback(err, metadata, children);
-                        }
-                    });
-                }
-            });
+                            if (index === children.length - 1){
+                                callback(null, metadata, children);
+                            }
+                        });
+
+                    }else{
+                        slide.translate(user_id, child.id, source, target, function(err, translated){
+                            if (err) callback(err);
+                            
+                            children[index].id = translated.id;
+
+                            if (index === children.length - 1){
+                                callback(null, metadata, children);
+                            }
+                        });
+                    }
+                });
+            }else{
+                callback('No children of this deck!!');
+            }
+            
         });
     };
     
@@ -72,12 +81,12 @@ var googleTranslate = require('google-translate')('AIzaSyBlwXdmxJZ__ZNScwe4zq5r3
         var inserts = ['deck_revision', 'id', rev_id];
         sql = mysql.format(sql, inserts);
             connection.query(sql, function(err, results) {
-                if (err) callback({error : err});
+                if (err) callback(err);
                 
                 if (results.length){
-                    callback(results[0].title);
+                    callback(null, results[0].title);
                 }else{
-                    callback({error : 'Deck not found!'});
+                    callback('Deck not found!');
                 }                
             }); 
         };        
@@ -86,54 +95,49 @@ var googleTranslate = require('google-translate')('AIzaSyBlwXdmxJZ__ZNScwe4zq5r3
         //tail recursion which builds the deck tree, accumulating in acc
        
         var new_children = [];
-        exports.getTitle(id, function (title_str) {
-            if (!title_str.error){
-                acc.title = title_str;
-                acc.id = id;
-                acc.type = 'deck';
-                acc.children = [];
-                //acc.numberOfSlides = 0;
-                getChildren(acc.id, function(children){//get direct children
+        exports.getTitle(id, function (err, title_str) {
+            if (err) callback(err);
+           
+            acc.title = title_str;
+            acc.id = id;
+            acc.type = 'deck';
+            acc.children = [];
+            //acc.numberOfSlides = 0;
+            getChildren(acc.id, function(err, children){//get direct children
+                if (err) callback(err);
+                
+                if (children.length){
                     children.forEach(function(child){
                         if (child.type === 'deck'){
-                            exports.getTree(child.id, child, function(child_child){//get the tree for a child
+                            exports.getTree(child.id, child, function(err, child_child){//get the tree for a child
+                                if (err) callback(err);
+                                
                                 acc.children[child_child.position - 1] = child_child;
                                 new_children = acc.children.filter(function(value) { return value !== null });
                                 if(new_children.length === children.length) {
                                     acc.children = new_children;
-                                    callback(acc);
+                                    callback(null, acc);
                                 }
                             });                            
                         }
                         else{ 
-                            slide.getTitle(child.id, function(title_str){
-                                if (!title_str.error){
-                                    child.title = title_str;
-                                    acc.children[child.position - 1] = child;
-                                    new_children = acc.children.filter(function(value) { return value !== null });
-                                    if(new_children.length === children.length) {
-                                        acc.children = new_children;
-                                        callback(acc);
-                                    }
-                                }else{
-                                    new_children = acc.children.filter(function(value) { return value !== null });
-                                    if(new_children.length === children.length) {
-                                        acc.children = new_children;
-                                        callback(acc);
-                                    }
-                                }                                
+                            slide.getTitle(child.id, function(err, title_str){
+                                if (err) callback(err);                                
+                                
+                                child.title = title_str;
+                                acc.children[child.position - 1] = child;
+                                new_children = acc.children.filter(function(value) { return value !== null });
+                                if(new_children.length === children.length) {
+                                    acc.children = new_children;
+                                    callback(null, acc);
+                                }
                             });                            
                         }
                     });
-                    new_children = acc.children.filter(function(value) { return value !== null });
-                    if(new_children.length === children.length) {
-                        acc.children = new_children;
-                        callback(acc);
-                    }
-                });
-            }else{
-                callback({error : 'Deck not found!'});
-            }            
+                }else{
+                    callback('Deck has no children');
+                }
+            });
         });
     };
     
@@ -143,25 +147,24 @@ var googleTranslate = require('google-translate')('AIzaSyBlwXdmxJZ__ZNScwe4zq5r3
         sql = mysql.format(sql, inserts);
         
         connection.query(sql, function(err, results) {
-            if (err) callback({error : err});
+            if (err) callback(err);
             
             if (results.length){
-                exports.getTree(results[0].id, {}, function(tree){ //getting number of slides
-                    if (!tree.error){
-                        var numberOfSlides = 0;
-                        tree.children.forEach(function(child){ 
-                            ifSlideThen(child, function(){
-                                numberOfSlides++;                       
-                            });                    
-                        });
-                        results[0].numberOfSlides = numberOfSlides;
-                        callback(results[0]);
-                    }else{
-                        callback(tree);
-                    }                    
+                exports.getTree(results[0].id, {}, function(err, tree){ //getting number of slides
+                    if (err) callback(err);
+                    
+                    var numberOfSlides = 0;
+                    tree.children.forEach(function(child){ 
+                        ifSlideThen(child, function(){
+                            numberOfSlides++;                       
+                        });                    
+                    });
+                    results[0].numberOfSlides = numberOfSlides;
+                    callback(null, results[0]);
+                                       
                 });     
             }else{
-                callback({error : 'Deck not found!'});
+                callback('Deck not found!');
             }                   
         });
     };
@@ -172,12 +175,12 @@ var googleTranslate = require('google-translate')('AIzaSyBlwXdmxJZ__ZNScwe4zq5r3
         sql = mysql.format(sql, inserts);
         
         connection.query(sql, function(err, results) {
-            if (err) callback({error : err});
+            if (err) callback(err);
             
             if (results.length){
-                callback(results[0]);    
+                callback(null, results[0]);    
             }else{
-                callback({error : 'Deck not found!'});
+                callback('Deck not found!');
             }                   
         });
     };
@@ -188,17 +191,15 @@ var googleTranslate = require('google-translate')('AIzaSyBlwXdmxJZ__ZNScwe4zq5r3
         
         var slides = [];
         
-        exports.getTree(rev_id, {}, function(tree){
-            if (!tree.error){
-                tree.children.forEach(function(child){
-                    ifSlideThen(child, function(child){
-                        slides.push(child.id);
-                    });
+        exports.getTree(rev_id, {}, function(err, tree){
+            if (err) callback(err);
+            
+            tree.children.forEach(function(child){
+                ifSlideThen(child, function(child){
+                    slides.push(child.id);
                 });
-                callback(slides);
-            }else{ //get tree has an error
-                callback(tree);
-            }            
+            });
+            callback(null, slides);
         });
     };
     
@@ -211,57 +212,54 @@ var googleTranslate = require('google-translate')('AIzaSyBlwXdmxJZ__ZNScwe4zq5r3
         result.slides = [];
         offset = parseInt(offset);
         limit = parseInt(limit);
-        exports.getAllSlides(id, function(slides){
-            if (slides.error){
-                callback(slides);
-            }else{
-                if (limit && limit+offset < slides.length){ //limit is set and doesn't exceed the number of slides
-                    slides.forEach(function(slide_id, index){
-                        if (index+1 >= offset && index+1 <= offset + limit){ //while in the borders
-                            if (onlyIDs === 'false'){ //get all metadata
-                                slide.getMetadata(slide_id, function(metadata){
-                                    if (metadata.error){
-                                        callback(metadata);
-                                    }
-                                    result.slides.push(metadata);
-                                    if (index+2 === offset + limit){ //if reached the limit
-                                        callback(result);
-                                    }
-                                });
-                            }else{ //get only IDs
-                                result.slides.push({'id' : slide_id});
+        exports.getAllSlides(id, function(err, slides){
+            if (err) callback(err);
+                
+            if (limit && limit+offset < slides.length){ //limit is set and doesn't exceed the number of slides
+                slides.forEach(function(slide_id, index){
+                    if (index+1 >= offset && index+1 <= offset + limit){ //while in the borders
+                        if (onlyIDs === 'false'){ //get all metadata
+                            slide.getMetadata(slide_id, function(err, metadata){
+                                if (err) callback(err);
+                                
+                                result.slides.push(metadata);
                                 if (index+2 === offset + limit){ //if reached the limit
-                                    callback(result);
+                                    callback(null, result);
                                 }
-                            }                        
-                        };
-                    });     
-                }else{ //limit is 0 or exceed the number of slides
-                    slides.forEach(function(slide_id, index){
-                        if (index+1 >= offset){ //while in the borders
-                            if (onlyIDs === 'false'){ //get all metadata
-                                slide.getMetadata(slide_id, function(metadata){
-                                    if (metadata.error){
-                                        callback(metadata);
-                                    }
-                                    result.slides.push(metadata);
-                                    if (index+1 === slides.length){ //if reached the limit
-                                        callback(result);
-                                    }
-                                });
-                            }else{ //get only IDS
-                                result.slides.push({'id' : slide_id});
-                                if (index+1 === slides.length){ //if reached the limit
-                                    callback(result);
-                                }
+                            });
+                        }else{ //get only IDs
+                            result.slides.push({'id' : slide_id});
+                            if (index+2 === offset + limit){ //if reached the limit
+                                callback(null, result);
                             }
-                        };
-                    });
-                    if (slides.length === 0){
-                        callback({error : 'A deck with the rev_id does not have slides!'});
-                    }
-                }                       
-            }
+                        }                        
+                    };
+                });     
+            }else{ //limit is 0 or exceed the number of slides
+                slides.forEach(function(slide_id, index){
+                    if (index+1 >= offset){ //while in the borders
+                        if (onlyIDs === 'false'){ //get all metadata
+                            slide.getMetadata(slide_id, function(err, metadata){
+                                if (err) callback(err);
+                                
+                                result.slides.push(metadata);
+                                if (index+1 === slides.length){ //if reached the limit
+                                    callback(null, result);
+                                }
+                            });
+                        }else{ //get only IDS
+                            result.slides.push({'id' : slide_id});
+                            if (index+1 === slides.length){ //if reached the limit
+                                callback(null, result);
+                            }
+                        }
+                    };
+                });
+                if (slides.length === 0){
+                    callback('A deck with the rev_id does not have slides!');
+                }
+            }                       
+            
         });
     };
     
@@ -284,35 +282,50 @@ var googleTranslate = require('google-translate')('AIzaSyBlwXdmxJZ__ZNScwe4zq5r3
             function collectContributors(owner_id, cbAsync){
                 var contributors = [];
                 var cbs = 0;
-                exports.getAllSlides(rev_id, function(slide_ids){ //get contributors of slides
-                    slide_ids.forEach(function(slide_id, index){
-                        cbs++;
-                        slide.getContributorsShort(slide_id, [], function(slide_contributors){
-                            contributors = contributors.concat(slide_contributors); //merge contributors from slides
-                            cbs--;
-                            if (cbs === 0){
-                                cbAsync(null, owner_id, lib.arrUnique(contributors));}
-                        });
-                    });
+                exports.getAllSlides(rev_id, function(err, slide_ids){ //get contributors of slides
+                    if (err) cbAsync(err);
                     
+                    if (slide_ids.length){
+                        slide_ids.forEach(function(slide_id, index){
+                            cbs++;
+                            slide.getContributorsShort(slide_id, [], function(err, slide_contributors){
+                                if (err) cbAsync(err);
+                                
+                                contributors = contributors.concat(slide_contributors); //merge contributors from slides
+                                cbs--;
+                                if (cbs === 0){
+                                    cbAsync(null, owner_id, lib.arrUnique(contributors));}
+                            });
+                        });
+                    }else{
+                        cbAsync('No slides found');
+                    }
                 });
             },
             
             function enrichUsers(owner_id, slide_contributors, cbAsync){
-                slide_contributors.forEach(function(element, index){
-                    user.enrich(element, function(enriched){
-                        slide_contributors[index] = enriched;
-                        if (index === slide_contributors.length - 1){
-                            cbAsync(null, owner_id, slide_contributors);
-                        }
-                    })
-                })
+                if (slide_contributors.length){
+                    slide_contributors.forEach(function(element, index){
+                        user.enrich(element, function(err, enriched){
+                            if (err) cbAsync(err);
+                            
+                            slide_contributors[index] = enriched;
+                            if (index === slide_contributors.length - 1){
+                                cbAsync(null, owner_id, slide_contributors);
+                            }
+                        });
+                    });
+                }else{
+                    cbAsync('No contributors!');
+                }
             },
             
             function addDeckOwner(owner_id, slide_contributors, cbAsync){
                 
                 
-                user.enrich(owner_id, function(enriched){
+                user.enrich(owner_id, function(err, enriched){
+                    if (err) cbAsync(err);
+                    
                     slide_contributors.push(enriched);
                     var contributors = lib.arrUnique(slide_contributors);
                     contributors.forEach(function(element, index){
@@ -329,9 +342,9 @@ var googleTranslate = require('google-translate')('AIzaSyBlwXdmxJZ__ZNScwe4zq5r3
                         }
                         
                     });
-                })
+                });
             }
-        ], function(err, results){callback(results);});
+        ], callback);
         
     };
     
@@ -342,17 +355,17 @@ var googleTranslate = require('google-translate')('AIzaSyBlwXdmxJZ__ZNScwe4zq5r3
         var tags = [];
         sql = mysql.format(sql, inserts);
         connection.query(sql,function(err,results){
-            if (err) callback({error : err});
+            if (err) callback(err);
             
             if (results.length){
                 results.forEach(function(tag_object){
                     tags.push(tag_object.tag);
                     if (tags.length === results.length){
-                        callback(tags);
+                        callback(null, tags);
                     };
                 });  
             }else{
-                callback([]);
+                callback(null, []);
             }                    
         });
     };
@@ -363,8 +376,10 @@ var googleTranslate = require('google-translate')('AIzaSyBlwXdmxJZ__ZNScwe4zq5r3
             function getNewBranchId(cbAsync){
                 var sql = "SELECT max(branch_id) AS max_brunch FROM deck_revision WHERE 1";
                 connection.query(sql, function(err, results){
+                    if (err) cbAsync(err);
+                    
                     deck.branch_id = results[0].max_brunch + 1;
-                    cbAsync(err, deck);
+                    cbAsync(null, deck);
                 });
             },
             function saveDeck(deck, cbAsync){
@@ -374,55 +389,61 @@ var googleTranslate = require('google-translate')('AIzaSyBlwXdmxJZ__ZNScwe4zq5r3
                 
                 
                 connection.query(sql, function(err, qresults){
+                    if (err) cbAsync(err);
+                    
                     deck.id = qresults.insertId;
-                    cbAsync(err, deck);
+                    cbAsync(null, deck);
                 });
             }
         ],
-        function AsyncComplete(err, deck){
-            callback(err, deck);
-        });
+        callback);
     };
     
     exports.addContent = function(deck_id, children, callback){
         var injection = {};
-        children.forEach(function(child, index){
-            injection.deck_revision_id = deck_id;
-            injection.item_id = child.id;
-            injection.item_type = child.type;
-            injection.position = child.position;
-            
-            
-            var sql = 'INSERT INTO deck_content SET ?';
-            var inserts = [injection];
-            sql = mysql.format(sql, inserts);
-            if (child.type === 'deck'){
-                connection.query(sql, function(err, results){
-                    if (err) callback(err);
-                    
-                    getChildren(child.id, function(grand_children){
-                        exports.addContent(child.id, grand_children, function(err, message){
-                            
-                            if (index === children.length - 1){
-                                callback(err, message);
-                            }
-                            
+        if (children.length){
+            children.forEach(function(child, index){
+                injection.deck_revision_id = deck_id;
+                injection.item_id = child.id;
+                injection.item_type = child.type;
+                injection.position = child.position;
+
+
+                var sql = 'INSERT INTO deck_content SET ?';
+                var inserts = [injection];
+                sql = mysql.format(sql, inserts);
+                
+                if (child.type === 'deck'){
+                    connection.query(sql, function(err, results){
+                        if (err) callback(err);
+
+                        getChildren(child.id, function(err, grand_children){
+                            if (err) callback(err);
+                            exports.addContent(child.id, grand_children, function(err, message){
+                                if (err) callback(err);
+                                
+                                if (index === children.length - 1){
+                                    callback(null, message);
+                                }
+                            });
                         });
+
                     });
-                    
-                });
-            }else{
-                connection.query(sql, function(err, results){
-                    if (err) callback(err);
-                    
-                    if (index === children.length -1){
-                        callback(null, 'done!');
-                    }
-                });
-            }
-        });
-            
+                }else{
+                    connection.query(sql, function(err, results){
+                        if (err) callback(err);
+
+                        if (index === children.length -1){
+                            callback(null, 'done!');
+                        }
+                    });
+                }
+            });
+        }else{
+            callback('No children given!');
+        }
     };
+    
     function getBranchId(deck_id, callback){
         var sql = "SELECT branch_id FROM ?? WHERE ?? = ? LIMIT 1";
         var inserts = ['deck_revision', 'id', deck_id];
@@ -430,19 +451,23 @@ var googleTranslate = require('google-translate')('AIzaSyBlwXdmxJZ__ZNScwe4zq5r3
 
         connection.query(sql, function(err, results) {
             if (err) callback(err);
+            if (results.length){
                 callback(null, results[0].branch_id);
-            });
-        }
+            }else{
+                callback('Deck not found');
+            }
+        });
+    }
         
     function translateMetadata(user_id, deck_id, target, callback){
         var source = '';
         async.waterfall([
             function getDeckMetadata(cbAsync){
-                exports.getMetadataShort(deck_id, function(metadata){
-                    
+                exports.getMetadataShort(deck_id, function(err, metadata){
+                    if (err) cbAsync(err);
                     delete metadata.created_at;
                     delete metadata.id;
-                    console.log('getmetadata');
+                    
                     cbAsync(null, metadata);
                 });
             },
@@ -455,6 +480,7 @@ var googleTranslate = require('google-translate')('AIzaSyBlwXdmxJZ__ZNScwe4zq5r3
             function getTargetName(metadata, cbAsync){
                 
                 lib.getLanguages(function(err, languageArray){
+                    if (err) cbAsync(err);
                     
                     var targetForDB = languageArray[target];
                     metadata.language = target + '-' + targetForDB;
@@ -466,6 +492,7 @@ var googleTranslate = require('google-translate')('AIzaSyBlwXdmxJZ__ZNScwe4zq5r3
                 
                 if (!metadata.title) {metadata.title = '';}
                 googleTranslate.translate(metadata.title, source, target, function(err, translation){
+                    if (err) cbAsync(err);
                     
                     metadata.title = translation.translatedText;
                     cbAsync(null, metadata);
@@ -475,6 +502,8 @@ var googleTranslate = require('google-translate')('AIzaSyBlwXdmxJZ__ZNScwe4zq5r3
             function translate_desciption(metadata, cbAsync){
                 if (!metadata.description) {metadata.description = '';}
                 googleTranslate.translate(metadata.description, source, target, function(err, translation){
+                    if (err) cbAsync(err);
+                    
                     metadata.description = translation.translatedText;
                     cbAsync(null, metadata);
                 });
@@ -482,6 +511,8 @@ var googleTranslate = require('google-translate')('AIzaSyBlwXdmxJZ__ZNScwe4zq5r3
             function translate_footer(metadata, cbAsync){
                 if (!metadata.footer_text) {metadata.footer_text = '';}
                 googleTranslate.translate(metadata.footer_text, source, target, function(err, translation){
+                    if (err) cbAsync(err);
+                    
                     metadata.footer_text = translation.translatedText;
                     cbAsync(null, metadata);
                 });
@@ -491,18 +522,19 @@ var googleTranslate = require('google-translate')('AIzaSyBlwXdmxJZ__ZNScwe4zq5r3
                 metadata.translated_from_revision = deck_id;
                 metadata.translation_status = 'in_progress';
                 getBranchId(deck_id, function(err, branch_id){
+                    if (err) cbAsync(err);
                     
                     metadata.translated_from = branch_id;
                     exports.new(metadata, function(err, saved){
+                        if (err) cbAsync(err);
+                        
                         metadata.id = saved.id;
                         metadata.source = source;
-                        cbAsync(err, metadata);
+                        cbAsync(null, metadata);
                     });
-                })                
-            },
-        ], function(err, result){
-            callback(err, result);
-        })
+                });                
+            }
+        ], callback);
     }
     
     exports.translate = function(user_id, deck_id, target, callback){        
@@ -523,10 +555,7 @@ var googleTranslate = require('google-translate')('AIzaSyBlwXdmxJZ__ZNScwe4zq5r3
                     cbAsync(err, translated);
                 });
             }
-        ],
-        function asyncComplete(err, translated){
-            callback(err, translated);
-        });
+        ], callback);
     };
 
 

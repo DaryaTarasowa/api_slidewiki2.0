@@ -1,5 +1,5 @@
 var express = require('express');
-var authController = require('./controllers/auth');
+
 var deckController = require('./controllers/deck');
 var slideController = require('./controllers/slide');
 var userController = require('./controllers/user');

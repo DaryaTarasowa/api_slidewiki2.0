@@ -14,8 +14,7 @@ var lib = require('./library');
         connection.query(sql, function(err, results){
             if (err) callback(err);
             
-            
-            callback(lib.compactObject(results[0]));            
+            callback(null, lib.compactObject(results[0]));            
         });
     };
 
@@ -25,15 +24,13 @@ var lib = require('./library');
         var sql = mysql.format(sql, inserts);
         
         connection.query(sql, function(err, results){
-            if (err) callback(err, null);
+            if (err) callback(err);
             
             if (results.length){
                 user.local = results[0];
-                callback(null, user);
-            }else{
-                callback(null, user);
-            }            
-        })    
+            }
+            callback(null, user);
+        });    
     };
     
     exports.enrichFromFB = function(user, callback){
@@ -42,15 +39,12 @@ var lib = require('./library');
         var sql = mysql.format(sql, inserts);
         
         connection.query(sql, function(err, results){
-            if (err) callback(err, null);
+            if (err) callback(err);
             
             if (results.length){
                 user.fb = results[0];
-                callback(null, user);
-            }else{
-                callback(null, user);
             }
-            
+            callback(null, user);
         });    
     };
     
@@ -60,12 +54,12 @@ var lib = require('./library');
         var inserts = [fields, 'local_users', where_obj];
         sql = mysql.format(sql, inserts);
         connection.query(sql, function(err, results){
-            if (err) callback(err, null);
+            if (err) callback(err);
             
             if (results.length){
                 callback(null, results[0]);
             }else{
-                callback(null, null);
+                callback('User not find');
             } 
         });
     };
@@ -76,12 +70,12 @@ var lib = require('./library');
         var inserts = [fields, 'users', where_obj];
         sql = mysql.format(sql, inserts);
         connection.query(sql, function(err, results){
-            if (err) callback(err, null);
+            if (err) callback(err);
             
             if (results.length){
                 callback(null, results[0]);
             }else{
-                callback(null, null);
+                callback('User not find!');
             } 
         });
     };
@@ -92,12 +86,12 @@ var lib = require('./library');
         var inserts = [fields, 'fb_users', where_obj];
         sql = mysql.format(sql, inserts);
         connection.query(sql, function(err, results){
-            if (err) callback(err, null);
+            if (err) callback(err);
             
             if (results.length){
                 callback(null, results[0]);
             }else{
-                callback(null, null);
+                callback('User not find!');
             } 
         });
     };
@@ -110,16 +104,18 @@ var lib = require('./library');
         sql = mysql.format(sql, inserts);
         
         connection.query(sql, function(err, results){
-            if (err) callback(err, null);
+            if (err) callback(err);
             
             if (results.length){
                 var user = results[0];
                 
                 if (user.local_id){
                     exports.enrichFromLocal(user, function(err, user){
+                        if (err) callback(err);
+                        
                         if (user.fb_id){
                             exports.enrichFromFB(user, function(err, user){
-                                callback(null, user);
+                                callback(err, user);
                             });
                         }else{
                             callback(null, user);
@@ -128,14 +124,14 @@ var lib = require('./library');
                 }else{
                     if (user.fb_id){
                         exports.enrichFromFB(user, function(err, user){
-                            callback(null, user);
+                            callback(err, user);
                         });
                     }else{
                         callback(null, user);
                     }
                 }
             }else{
-                callback(null, null);
+                callback('User not found');
             } 
         });
     };
@@ -157,6 +153,8 @@ var lib = require('./library');
             sql = mysql.format(sql, inserts);
             
             connection.query(sql, function(err, results){
+                if (err) callback(err);
+                
                 newUser.id = results.insertId;
                 callback(null, newUser);
             })            
@@ -176,10 +174,12 @@ var lib = require('./library');
             sql = mysql.format(sql, inserts);
             
             connection.query(sql, function(err, results){
+                if (err) callback(err);
+                
                 fbUser.fb_id = fbUser.id;
                 fbUser.id = results.insertId;
                 callback(null, fbUser);
-            }) 
+            }); 
         });
     };
     
