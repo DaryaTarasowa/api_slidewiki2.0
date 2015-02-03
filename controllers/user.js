@@ -34,7 +34,10 @@ exports.verifyPassword = function(req, res) {
                     return;
                 }
             if (error.length){
-                    res.json(error);
+                
+                    var isMatch = {};
+                    isMatch.error = err;
+                    res.json(isMatch);
                 }
             if (!isMatch){
                 res.json('Wrong pass!');
