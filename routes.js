@@ -4,6 +4,15 @@ var deckController = require('./controllers/deck');
 var slideController = require('./controllers/slide');
 var userController = require('./controllers/user');
 var scriptsController = require('./controllers/scripts');
+var cors = require('cors');
+
+var corsOptions = {
+  origin: 'http://localhost:3000'
+};
+
+function sendUserback(error, user){
+    
+}
 
 module.exports = function(app, passport) {
 
@@ -63,13 +72,14 @@ module.exports = function(app, passport) {
                 .get(deckController.getSlides);
         
         router.route('/login')
-                .get(function(req, res) {res.render('login.ejs', { message: req.flash('loginMessage') })})
-                .post(passport.authenticate('local-login', {
-                        successRedirect : '/api/profile', // redirect to the secure profile section
-                        failureRedirect : '/api/login', // redirect back to the signup page if there is an error
-                        failureFlash : true // allow flash messages
-                    })
-                );
+                .get(function(req, res) {res.render('login.ejs', { message: req.flash('loginMessage') });})
+                .post(function(req, res, next) {
+                    passport.authenticate('local-login', function(err, user, info) {
+                        console.log(user);
+                        return res.json(user);
+                      })
+                    (req, res, next);
+                  });
         router.route('/logout')
                 .get(function(req, res) {
                     req.logout();
