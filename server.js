@@ -2,14 +2,13 @@
 var express = require('express');
 var bodyParser = require('body-parser');
 var session = require('express-session');
-var ejs = require('ejs');
 var mysql = require('mysql');
 var connection = require('./config').connection; //mysql connection
 var passport = require('passport');
 var flash    = require('connect-flash');
 var morgan       = require('morgan');
 var cookieParser = require('cookie-parser');
-
+var cors = require('cors');
 
 
 
@@ -34,12 +33,19 @@ function start(){
           saveUninitialized: true,
           resave: true
         }));
+        app.use(cors());
         
-        app.use(function(req, res, next) {
-            res.header("Access-Control-Allow-Origin", "*");
-            res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
-            next();
-        });
+//        app.use(function (req, res, next) {
+//            res.header('Access-Control-Allow-Origin', '*');
+//            res.header('Access-Control-Allow-Headers', '*');
+//            res.header('Access-Control-Allow-Methods', 'POST, GET, PUT, DELETE, OPTIONS');
+//            res.header('Access-Control-Allow-Credentials', 'true');
+//            res.header("Access-Control-Expose-Headers", "Location");
+//            next();
+//        });
+//        app.options('*', function(req, res){
+//            res.send(200);
+//        });
         
         app.use(morgan('dev')); // log every request to the console
         app.use(cookieParser()); // read cookies (needed for auth)

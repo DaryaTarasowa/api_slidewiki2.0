@@ -4,11 +4,6 @@ var deckController = require('./controllers/deck');
 var slideController = require('./controllers/slide');
 var userController = require('./controllers/user');
 var scriptsController = require('./controllers/scripts');
-var cors = require('cors');
-
-var corsOptions = {
-  origin: 'http://localhost:3000'
-};
 
 function sendUserback(error, user){
     
@@ -88,20 +83,27 @@ module.exports = function(app, passport) {
                 
         router.route('/signup')
                 .get(function(req, res) {res.render('signup.ejs', { message: req.flash('signupMessage') });})
-                .post(passport.authenticate('local-signup', {
-                    successRedirect : '/api/profile', // redirect to the secure profile section
-                    failureRedirect : '/api/signup', // redirect back to the signup page if there is an error
-                    failureFlash : true // allow flash messages
-                })
-            );
+                .post(function(req, res, next) {
+                    passport.authenticate('local-signup', function(err, user, info) {
+                        console.log(err);
+                        console.log(user);
+                        return res.json(user);
+                      })
+                    (req, res, next);
+                  });            
         router.route('/auth/facebook')
-                .get(passport.authenticate('facebook', { scope : 'email' }));
+                .get(function(req, res, next){
+                    passport.authenticate('facebook', { scope : 'email' })(req, res, next);
+        });
         
-        router.route('auth/facebook/callback')
-                .get(passport.authenticate('facebook', {
-                    successRedirect : '/api/profile',
-                    failureRedirect : '/api/'
-                }));
+        router.route('/auth/facebook/callback')
+                .get(function(req, res, next){
+                    passport.authenticate('facebook', function(err, user){
+                        console.log(user);
+                        return res.json(user);
+                    }) (req, res, next);
+                });
+                    
         
     
         router.route('/profile')
@@ -114,6 +116,7 @@ module.exports = function(app, passport) {
 
     
          // Register all our routes with /api
+      
 	app.use('/api', router);
       
 };

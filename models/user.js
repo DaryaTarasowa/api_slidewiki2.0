@@ -7,7 +7,7 @@ var lib = require('./library');
 
 
     exports.enrich = function(user_id, callback){
-        var sql = 'SELECT users.id AS id, local_id, fb_id, local_users.email, local_users.username, local_users.registered, fb_users.email AS fb_email, fb_users.name FROM users LEFT JOIN local_users ON users.local_id = local_users.id LEFT JOIN fb_users ON users.fb_id = fb_users.id WHERE users.id = ? LIMIT 1';
+        var sql = 'SELECT users.id AS id, users.picture AS avatar, local_id, fb_id, local_users.email, local_users.username, local_users.registered, fb_users.email AS fb_email, fb_users.name FROM users LEFT JOIN local_users ON users.local_id = local_users.id LEFT JOIN fb_users ON users.fb_id = fb_users.id WHERE users.id = ? LIMIT 1';
         var inserts = [user_id];
         var sql = mysql.format(sql, inserts);
 

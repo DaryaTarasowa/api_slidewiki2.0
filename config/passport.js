@@ -50,10 +50,7 @@ module.exports = function(passport) {
             // we are checking to see if the user trying to login already exists
             var fields = ['id'];
             user.findLocal(fields, {'username' : username}, function(err, sign_user) {
-                // if there are any errors, return the error
-                if (err)
-                    return done(err);
-
+                
                 // check to see if theres already a user with that email
                 if (sign_user) {
                     return done(null, false, req.flash('signupMessage', 'That username is already taken.'));
@@ -71,7 +68,7 @@ module.exports = function(passport) {
                     // save the user
                     user.saveLocal(newUser, function(err, signedUser) {
                         if (err)
-                            throw err;
+                            return done(err);
                         return done(null, signedUser);
                     });
                 }
@@ -118,8 +115,11 @@ module.exports = function(passport) {
                             return done(null, false, req.flash('loginMessage', 'Oops! Wrong password.')); // create the loginMessage and save it to session as flashdata
                         }
                         // all is well, return successful user
-                    
-                        return done(null, user_final);
+                        
+                        user.enrich(user_final.id, function(err, enriched){
+                            return done(err, enriched);
+                        });
+                        
                     });  
                 })
                 
@@ -155,7 +155,10 @@ module.exports = function(passport) {
 
                 // if the user is found, then log them in
                 if (fb_user) {
-                    return done(null, fb_user); // user found, return that user
+                    user.enrich(fb_user.id, function(err, enriched){
+                        return done(err, enriched);
+                    });
+                    
                 } else {
                     // if there is no user found with that facebook id, create them
                     var fb_user = {};
