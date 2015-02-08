@@ -56,11 +56,13 @@ exports.getContributors = function(req, res) {
                 contributors = {};
                 contributors.error = error;
             }
+            
             res.json(contributors);
         });
     }else{
         var contributors = {};
         contributors.error = "rev_id (" + req.params.rev_id +")is not valid!";
+      
         res.json(contributors);
     }
 };
