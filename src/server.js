@@ -3,7 +3,7 @@ var express = require('express');
 var bodyParser = require('body-parser');
 var session = require('express-session');
 var mysql = require('mysql');
-var connection = require('./config').connection; //mysql connection
+var connection = require('../src/config/config').connection; //mysql connection
 var passport = require('passport');
 var flash    = require('connect-flash');
 var morgan       = require('morgan');
@@ -12,8 +12,9 @@ var cors = require('cors');
 
 
 
+
 		
-function start(){
+
 
 	// Create Express application
 	var app = express();
@@ -60,7 +61,7 @@ function start(){
             res.status(500).send('Something broke!');
         });
 	
-	var port = require('./config').port;
+	var port = require('./config/config').port;
 	
         //mysql connection
 	connection.connect(function(err) {
@@ -71,8 +72,9 @@ function start(){
 
 		console.log('connected as id ' + connection.threadId);
 	});
-        require('./config/passport')(passport); // pass passport for configuration
-        require('./routes.js')(app, passport); // load our routes and pass in our app and fully configured passport
+   
+        require('../src/config/passport')(passport); // pass passport for configuration
+        require('../src/config/routes.js')(app, passport); // load our routes and pass in our app and fully configured passport
         
        
         
@@ -81,6 +83,4 @@ function start(){
 	// Start the server
 	app.listen(port);
 	
-}
 
-exports.start = start;

@@ -1,7 +1,7 @@
 var mysql = require('mysql');
 var crypto = require('crypto');
 var salt = 'slidewikisalt';
-var connection = require('../config').connection;
+var connection = require('../config/config').connection;
 var async  = require('async');
 var lib = require('./library');
 

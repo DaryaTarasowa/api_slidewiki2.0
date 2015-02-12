@@ -1,9 +1,9 @@
 var express = require('express');
 
-var deckController = require('./controllers/deck');
-var slideController = require('./controllers/slide');
-var userController = require('./controllers/user');
-var scriptsController = require('./controllers/scripts');
+var deckController = require('../controllers/deck');
+var slideController = require('../controllers/slide');
+var userController = require('../controllers/user');
+var scriptsController = require('../controllers/scripts');
 
 function sendUserback(error, user){
     
@@ -67,10 +67,10 @@ module.exports = function(app, passport) {
                 .get(deckController.getSlides);
         
         router.route('/login')
-                .get(function(req, res) {res.render('login.ejs', { message: req.flash('loginMessage') });})
+                
                 .post(function(req, res, next) {
-                    passport.authenticate('local-login', function(err, user, info) {
-                        console.log(user);
+                    passport.authenticate('local-login', function(err, user) {
+                        if (err) user = {error : err};
                         return res.json(user);
                       })
                     (req, res, next);
@@ -84,9 +84,8 @@ module.exports = function(app, passport) {
         router.route('/signup')
                 .get(function(req, res) {res.render('signup.ejs', { message: req.flash('signupMessage') });})
                 .post(function(req, res, next) {
-                    passport.authenticate('local-signup', function(err, user, info) {
-                        console.log(err);
-                        console.log(user);
+                    passport.authenticate('local-signup', function(err, user) {
+                        if (err) user = {error : err};
                         return res.json(user);
                       })
                     (req, res, next);

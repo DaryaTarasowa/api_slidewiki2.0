@@ -1,6 +1,6 @@
 var mysql = require('mysql');
 var lib = require('./library');
-var connection = require('../config').connection;
+var connection = require('../config/config').connection;
 var async = require('async');
 var user = require('./user');
 var googleTranslate = require('google-translate')('AIzaSyBlwXdmxJZ__ZNScwe4zq5r3qh3ebXb26k');
