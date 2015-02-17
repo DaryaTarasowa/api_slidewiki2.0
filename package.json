@@ -21,6 +21,7 @@
     "connect-flash": "~0.1.1",
     "cookie-parser": "~1.0.0",
     "cors": "^2.5.3",
+    "debug": "^2.1.1",
     "dnode": "^1.2.0",
     "ejs": "^2.1.4",
     "express": "~4.1.1",

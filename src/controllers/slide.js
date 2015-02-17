@@ -70,10 +70,10 @@ exports.newSlide = function(req, res){
     var error = [];
     slide.new(req.body, function(err, new_slide){
         if (err) {
-                    console.log({error : err});
-                    error.push(err);
-                    return;
-                }
+            console.log({error : err});
+            error.push(err);
+            return;
+        }
                 
         slide.addToDeck(req.body.parent_deck_id, new_slide.id, req.body.position, function(err, result){
             if (err) {
@@ -105,5 +105,6 @@ exports.updateSlide = function(req, res){
 };
 
 exports.translate = slide.translate;
+exports.rename = slide.rename;
 
 

@@ -298,7 +298,7 @@ exports.getTitle = function(rev_id, callback){
         if (!injection.language) injection.language = null;
         injection.translated_from = slide_metadata.translated_from;
         injection.translated_from_revision = slide_metadata.translated_from_revision;
-        injection.translation_status = slide_metadata.translation_status;
+        injection.translation_status = slide_metadata.translation_status || 'original';
         
         
         async.waterfall(
@@ -332,7 +332,7 @@ exports.getTitle = function(rev_id, callback){
                             cbAsync(null, injection);
                         });
                     });
-                }
+                },
             ], 
             function asyncComplete(err, result) {
                 callback(err, result);  
@@ -344,6 +344,7 @@ exports.getTitle = function(rev_id, callback){
         //todo: what it should return?
         async.waterfall([
             function getPositionNewSlide(cbAsync){
+                console.log('position:' + position);
                 if (!position){
                     var sql = "SELECT max(position) AS max_position FROM deck_content WHERE ?";
                     var inserts = [{deck_revision_id : deck_id}];
@@ -370,13 +371,13 @@ exports.getTitle = function(rev_id, callback){
                 sql = mysql.format(sql, inserts);
                 connection.query(sql, function(err, results_insert){
                     
-                    cbAsync(err, position);
+                    cbAsync(err, {id: slide_id, position: position});
                 });
             }
         ], 
         
         function(err, result){
-            callback('done');
+            callback(err, result);
         });
     };
     
@@ -543,6 +544,17 @@ exports.getTitle = function(rev_id, callback){
         ],
         function asyncComplete(err, translated){
             callback(err, translated);
+        });
+    };
+    
+    exports.rename = function(id, new_title, callback){
+        var sql = "UPDATE slide_revision SET title = ? WHERE ?? = ?";
+        var inserts = [new_title, 'id', id];
+        sql = mysql.format(sql, inserts);
+        console.log(sql);
+        connection.query(sql, function(err, results) {
+            if (err) callback(err);
+            return callback(null, true);
         });
     };
 

@@ -5,6 +5,7 @@ var connection = require('../config/config').connection;
 var user = require('../models/user');
 var async = require('async');
 var googleTranslate = require('google-translate')('AIzaSyBlwXdmxJZ__ZNScwe4zq5r3qh3ebXb26k');
+var debug = require('debug');
 
     
     //high-order fundtions
@@ -171,7 +172,7 @@ var googleTranslate = require('google-translate')('AIzaSyBlwXdmxJZ__ZNScwe4zq5r3
                     
                 });     
             }else{
-                callback('Deck not found!');
+                callback('Not found deck ' + id);
             }                   
         });
     };
@@ -575,6 +576,128 @@ var googleTranslate = require('google-translate')('AIzaSyBlwXdmxJZ__ZNScwe4zq5r3
                 });
             }
         ], callback);
+    };
+    
+    exports.decreaseIndexes = function(rev_id, position, callback){
+        var sql = "UPDATE ?? SET position = position - 1 WHERE ?? = ? AND ?? > ?";
+        var inserts = ['deck_content', 'deck_revision_id', rev_id, 'position', position];
+        sql = mysql.format(sql, inserts);
+        
+        connection.query(sql, function(err, results) {
+            console.log(sql);
+            
+            if (err) callback(err);
+            return callback(null);
+        });
+    };
+    
+    exports.increaseIndexes = function(rev_id, position, callback){
+        var sql = "UPDATE deck_content SET position = position + 1 WHERE deck_revision_id = ? AND position >= ? ORDER BY position DESC";
+        var inserts = [rev_id, position];
+        sql = mysql.format(sql, inserts);
+        
+        connection.query(sql, function(err, results) {
+            console.log(sql);
+            if (err) callback(err);
+            return callback(null);
+        });
+    };
+    
+    exports.removeFromPosition = function(rev_id, position, callback){
+        var sql = "DELETE FROM ?? WHERE ?? = ? AND ?? = ? LIMIT 1";
+        var inserts = ['deck_content', 'deck_revision_id', rev_id,  'position', position];
+        sql = mysql.format(sql, inserts);
+        
+        connection.query(sql, function(err, results) {
+            console.log(sql);
+            if (err) callback(err);
+            exports.decreaseIndexes(rev_id, position, function(err){
+                if (err) return callback(err);
+                return callback(null, true);
+            });            
+        });
+    };
+    
+    exports.removeFromById = function(rev_id, item_type, item_id, callback){
+        var sql = "SELECT position FROM ?? WHERE ?? = ? AND ?? = ? AND ?? = ? LIMIT 1"
+        var inserts = ['deck_content', 'deck_revision_id', rev_id, 'item_type' , item_type, 'item_id', item_id];
+        sql = mysql.format(sql, inserts);
+        
+        
+        connection.query(sql, function(err, results){
+            console.log(sql);
+            if (err) callback(err);
+            if (results.length){
+                var position = results[0].position;
+                exports.removeFromPosition(rev_id, position, callback);
+            }else{
+                callback('Item ' + item_id + 'was not found in deck' + rev_id, false);
+            }
+        });
+    };
+    
+    exports.insertIntoPosition = function(item, rev_id, position, callback){
+        var injection = {
+            deck_revision_id : rev_id,
+            item_type : item.item_type,
+            item_id : item.item_id,
+            position : position
+        };
+        var sql = "INSERT INTO deck_content SET ? ";
+        sql = mysql.format(sql, injection);
+       
+        
+        exports.increaseIndexes(rev_id, position, function(err){
+            if (err) return callback(err);
+            connection.query(sql, function(err, results) {
+                console.log(sql);
+                if (err) callback(err);
+                return callback(null, true);
+            });
+        });        
+    };
+    
+    
+    exports.getItemByPosition = function(parent, position, callback){
+        var sql = "SELECT item_id, item_type FROM ?? WHERE ?? = ? AND ?? = ? LIMIT 1";
+        var inserts = ['deck_content', 'deck_revision_id', parent, 'position', position];
+        sql = mysql.format(sql, inserts);
+        connection.query(sql, function(err, results) {
+            
+            console.log(sql);
+            if (err) callback(err);
+            if (results.length){
+                console.log(results[0]);
+                callback(null, results[0]);
+            }else{
+                callback('Not found item in deck ' + parent + ' at position ' + position);
+            }
+        });
+    };
+    
+    exports.moveItem = function(parent, parent_position, target, target_position, callback){
+        exports.getItemByPosition(parent, parent_position, function(err, item){
+            if (err) callback(err);
+            async.waterfall([
+                function removeItem(cbAsync){
+                    exports.removeFromPosition(parent, parent_position, cbAsync)
+                },
+                function insertItem(result, cbAsync){
+                    exports.insertIntoPosition(item, target, target_position, cbAsync)
+                }
+            ], callback);
+        });
+    };
+    
+    exports.rename = function(id, new_title, callback){
+        var sql = "UPDATE deck_revision SET title = ? WHERE ?? = ?";
+        var inserts = [new_title, 'id', id];
+        sql = mysql.format(sql, inserts);
+        console.log(sql);
+        connection.query(sql, function(err, results) {
+            if (err) callback(err);
+            return callback(null, true);
+        });
     };
 
 

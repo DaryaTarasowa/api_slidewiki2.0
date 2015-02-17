@@ -10,8 +10,7 @@ exports.getTree = function(req, res) {
                     return;
                 }
                 if (error.length){
-                    tree = {};
-                    tree.error = error;
+                    tree = {error : error};
                 }
                 res.json(tree);
         });
@@ -117,7 +116,41 @@ exports.getSlides = function(req, res) {
     }
 };
 
+exports.moveItem = function(req, res){
+    var error = [];
+    deck.moveItem(req.params.parent, req.params.parent_position, req.params.target, req.params.target_position, function(err, response){
+        if (err){
+            error.push(err);
+            res.json(error);
+        }else{
+            if (response)
+                return res.json(true);
+            else{
+                return res.json(null);
+            }
+        }
+    })
+};
+
+exports.deleteFrom = function(req, res){
+    var error = [];
+    deck.removeFromById(req.params.parent, req.params.type, req.params.id, function(err, response){
+        if (err){
+            error.push(err);
+            res.json(error);
+        }else{
+            if (response){
+                return res.json(true);
+            }else{
+                return res.json(null);
+            }
+        }
+    });
+}
+        
+
 exports.translate = deck.translate;
+exports.rename = deck.rename;
 
 
 

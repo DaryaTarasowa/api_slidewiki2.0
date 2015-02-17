@@ -19,7 +19,7 @@ module.exports = function(app, passport) {
         router.route('/')
                 .get(function(req, res){res.render('index.ejs');});
 		
-	router.route('/deck/tree/:rev_id')
+        router.route('/deck/tree/:rev_id')
                 .get(deckController.getTree);
         
         router.route('/deck/:rev_id')
@@ -66,11 +66,42 @@ module.exports = function(app, passport) {
         router.route('/deck/slides/:rev_id/offset/:offset/limit/:limit/:onlyIDs')
                 .get(deckController.getSlides);
         
+        router.route('/moveItem/:parent/:parent_position/:target/:target_position')
+                .get(deckController.moveItem);
+        
+        router.route('/deleteFrom/:parent/:type/:id')
+                .get(deckController.deleteFrom);
+        
+        router.route('/rename/:type/:id/:new_title')
+                .get( function(req, res){
+                    var error = [];
+                        switch(req.params.type) {
+                            case 'deck' : deckController.rename(req.params.id, req.params.new_title, function(err, response){
+                                    if (err){
+                                        res.json([err]);
+                                    }else{
+                                        if (response) return res.json(true);
+                                        else return res.json(null);
+                                    }   
+                                });
+                                break;
+                            case 'slide' : slideController.rename(req.params.id, req.params.new_title, function(err, response){
+                                if (err){
+                                        res.json([err]);
+                                    }else{
+                                        if (response) return res.json(true);
+                                        else return res.json(null);
+                                    } 
+                                });
+                                break;
+                        }
+                    });
+                    
         router.route('/login')
                 
                 .post(function(req, res, next) {
                     passport.authenticate('local-login', function(err, user) {
-                        if (err) user = {error : err};
+                        if (err) user = {error : [err]};
                         return res.json(user);
                       })
                     (req, res, next);
@@ -85,7 +116,7 @@ module.exports = function(app, passport) {
                 .get(function(req, res) {res.render('signup.ejs', { message: req.flash('signupMessage') });})
                 .post(function(req, res, next) {
                     passport.authenticate('local-signup', function(err, user) {
-                        if (err) user = {error : err};
+                        if (err) user = {error : [err]};
                         return res.json(user);
                       })
                     (req, res, next);
