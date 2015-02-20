@@ -143,7 +143,7 @@ var debug = require('debug');
     };
     
     exports.getMetadata = function(id, callback){
-        var sql = "SELECT id, title, created_at, description, footer_text, origin FROM ?? WHERE ?? = ? LIMIT 1";
+        var sql = "SELECT id, title, created_at, description, footer_text, origin, language, translation_status, translated_from_revision FROM ?? WHERE ?? = ? LIMIT 1";
         var inserts = ['deck_revision', 'id', id];
         sql = mysql.format(sql, inserts);
         
@@ -678,14 +678,20 @@ var debug = require('debug');
     exports.moveItem = function(parent, parent_position, target, target_position, callback){
         exports.getItemByPosition(parent, parent_position, function(err, item){
             if (err) callback(err);
-            async.waterfall([
-                function removeItem(cbAsync){
-                    exports.removeFromPosition(parent, parent_position, cbAsync)
-                },
-                function insertItem(result, cbAsync){
-                    exports.insertIntoPosition(item, target, target_position, cbAsync)
-                }
-            ], callback);
+            if (!item){
+                callback('Item not found at deck ' + parent + 'at the position ' + parent_position)
+            }else{
+                console.log(item);
+                async.waterfall([
+                    function removeItem(cbAsync){
+                        exports.removeFromPosition(parent, parent_position, cbAsync)
+                    },
+                    function insertItem(result, cbAsync){
+                            exports.insertIntoPosition(item, target, target_position, cbAsync)
+                    }
+                ], callback);
+            }
+            
         });
     };
     
