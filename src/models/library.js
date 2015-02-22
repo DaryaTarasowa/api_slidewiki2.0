@@ -52,12 +52,31 @@ var googleTranslate = require('google-translate')('AIzaSyBlwXdmxJZ__ZNScwe4zq5r3
         googleTranslate.getSupportedLanguages('en', function(err, languages){
             if (err) callback(err);
             
-            var lookup = {};
-            for (var i = 0; i < languages.length;  i++) {
-                lookup[languages[i].language] = languages[i].name;
+            if (languages){
+                var lookup = {};
+                for (var i = 0; i < languages.length;  i++) {
+                    lookup[languages[i].language] = languages[i].name;
+                }
+
+                callback(null, lookup);
+            }else{
+                callback('CONNECTION');
             }
             
-            callback(null, lookup);
+        });
+    };
+    
+    exports.getLanguagesArray = function(callback){
+        //todo caching
+        googleTranslate.getSupportedLanguages('en', function(err, languages){
+            if (err) callback(err);
+            
+            if (languages){
+                callback(null, languages);
+            }else{
+                callback('CONNECTION');
+            }
+            
         });
     };
     

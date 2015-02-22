@@ -4,6 +4,7 @@ var deckController = require('../controllers/deck');
 var slideController = require('../controllers/slide');
 var userController = require('../controllers/user');
 var scriptsController = require('../controllers/scripts');
+var lib = require('../models/library');
 
 function sendUserback(error, user){
     
@@ -71,6 +72,16 @@ module.exports = function(app, passport) {
         
         router.route('/deleteFrom/:parent/:type/:id')
                 .get(deckController.deleteFrom);
+        
+        router.route('/languages')
+                .get(function(req, res){
+                        lib.getLanguagesArray(function(err, results){
+                            if (err){
+                                res.json({error : err});
+                            }
+                            res.json(results);
+                        });
+                    });
         
         router.route('/rename/:type/:id/:new_title')
                 .get( function(req, res){
