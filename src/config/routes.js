@@ -74,7 +74,6 @@ module.exports = function(app, passport) {
         
         router.route('/rename/:type/:id/:new_title')
                 .get( function(req, res){
-                    var error = [];
                         switch(req.params.type) {
                             case 'deck' : deckController.rename(req.params.id, req.params.new_title, function(err, response){
                                     if (err){
