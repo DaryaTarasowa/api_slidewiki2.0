@@ -36,9 +36,10 @@ module.exports = function(app, passport) {
                 .put(slideController.updateSlide);
         
         router.route('/translate/:target/:type/:id')
-                .get(isLoggedIn, function(req, res){
+        //todo for now is always for user '3'
+                .get(function(req, res){
                     switch (req.params.type){
-                        case 'deck' : deckController.translate(req.user.id, req.params.id, req.params.target, function(err, result){
+                        case 'deck' : deckController.translate('3', req.params.id, req.params.target, function(err, result){
                                         res.json(result);
                                     });
                                     break;
