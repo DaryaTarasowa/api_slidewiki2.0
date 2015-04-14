@@ -50,8 +50,9 @@ var lib = require('./library');
     
     exports.findLocal = function(fields, where_obj, callback){
         //requires list as first and json.obj as second parameter, like {'username' : username}
-        var sql = 'SELECT ?? FROM ?? WHERE ? LIMIT 1';
-        var inserts = [fields, 'local_users', where_obj];
+        // var sql = 'SELECT ?? FROM ?? WHERE ? LIMIT 1';
+        var sql = 'select * from local_users, users where local_users.id = users.local_id AND users.local_id = ? LIMIT 1;'
+        var inserts = [where_obj.id];
         sql = mysql.format(sql, inserts);
         connection.query(sql, function(err, results){
             if (err) callback(err);
