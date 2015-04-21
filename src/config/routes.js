@@ -141,7 +141,7 @@ module.exports = function(app, passport) {
                 .get(function(req, res, next){
                     passport.authenticate('facebook', function(err, user){
                         console.log(user);
-                        return res.json(user);
+                        return res.json(user);// change this to redirect to req.caller with set cookie
                     }) (req, res, next);
                 });
                     
