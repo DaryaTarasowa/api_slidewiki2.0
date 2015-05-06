@@ -24,7 +24,7 @@ exports.getMetadata = function(req, res) {
     //     res.json(metadata);
     // }
         var fields = ['id', 'email', 'username', 'password', 'registered', 'default_theme'];
-        user.findLocal(fields, {'id' : req.params.id}, function(err, metadata) {
+        user.getUser(fields, {'id' : req.params.id}, function(err, metadata) {
              if (err) {
                     console.log({error : err});
                     error.push(err);
