@@ -382,7 +382,8 @@ var _ = require('lodash');
                 
                 connection.query(sql,function(err,results){
                     if (err) cbAsync(err);
-                    cbAsync(null, results[0].user_id);
+                    if (results.length) cbAsync(null, results[0].user_id);
+                    else cbAsync('No contributors for deck ' + rev_id);
                 });
             },
             
@@ -433,7 +434,6 @@ var _ = require('lodash');
             },
             
             function addDeckOwner(owner_id, slide_contributors, cbAsync){
-                
                 
                 user.enrich(owner_id, function(err, enriched){
                     if (err) cbAsync(err);
@@ -679,7 +679,6 @@ var _ = require('lodash');
         sql = mysql.format(sql, inserts);
         
         connection.query(sql, function(err, results) {
-            console.log(sql);
             
             if (err) callback(err);
             return callback(null);
@@ -692,7 +691,6 @@ var _ = require('lodash');
         sql = mysql.format(sql, inserts);
         
         connection.query(sql, function(err, results) {
-            console.log(sql);
             if (err) callback(err);
             return callback(null);
         });
@@ -704,7 +702,6 @@ var _ = require('lodash');
         sql = mysql.format(sql, inserts);
         
         connection.query(sql, function(err, results) {
-            console.log(sql);
             if (err) callback(err);
             exports.decreaseIndexes(rev_id, position, function(err){
                 if (err) return callback(err);
@@ -720,7 +717,6 @@ var _ = require('lodash');
         
         
         connection.query(sql, function(err, results){
-            console.log(sql);
             if (err) callback(err);
             if (results.length){
                 var position = results[0].position;
@@ -745,7 +741,6 @@ var _ = require('lodash');
         exports.increaseIndexes(rev_id, position, function(err){
             if (err) return callback(err);
             connection.query(sql, function(err, results) {
-                console.log(sql);
                 if (err) callback(err);
                 return callback(null, true);
             });
@@ -759,7 +754,6 @@ var _ = require('lodash');
         sql = mysql.format(sql, inserts);
         connection.query(sql, function(err, results) {
             
-            console.log(sql);
             if (err) callback(err);
             if (results.length){
                 console.log(results[0]);

@@ -7,8 +7,8 @@ exports.getTree = function(req, res) {
             if (err) {
                     console.log({error : err});
                     error.push(err);
-                    return;
                 }
+
                 if (error.length){
                     tree = {error : error};
                 }
@@ -28,7 +28,6 @@ exports.getMetadata = function(req, res){
             if (err) {
                     console.log({error : err});
                     error.push(err);
-                    return;
                 }
                 if (error.length){
                     metadata = {};
@@ -53,9 +52,9 @@ exports.getContributors = function(req, res) {
             }
             if (error.length){
                 contributors = {};
+                console.log(error);
                 contributors.error = error;
             }
-            
             res.json(contributors);
         });
     }else{

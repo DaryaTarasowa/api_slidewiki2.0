@@ -1,0 +1,9 @@
+node_modules
+bower_components
+build
+.idea
+*.log
+test.js
+/nbproject/private/
+/nbproject
+src/config/config.js

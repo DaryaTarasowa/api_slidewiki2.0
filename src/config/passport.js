@@ -51,14 +51,16 @@ module.exports = function(passport) {
             var error = {};
             var fields = ['id'];
             user.findLocal(fields, {'username' : username}, function(err, sign_user) {
-                if (err) {
-                    error.body = err;
-                    error.code = 'INTERNAL';
-                    return done(error.code);
-                }
+                // if (err) {
+                //     console.log(err);
+                //     error.body = err;
+                //     error.code = 'INTERNAL';
+                //     return done(error.code);
+                // }
                 
                 // check to see if theres already a user with that email
                 if (sign_user) {
+                    // console.log(sign_user);
                     error.body = 'Username is already in use';
                     error.code = 'WRONG_USERNAME';
                     return done(error.code);
@@ -73,16 +75,28 @@ module.exports = function(passport) {
                     newUser.username    = username;
                     newUser.password = user.generateHash(password);
                     newUser.email = req.body.email;
+                    if (req.body.fb_id) {
 
+                        user.saveLocalwithFB(newUser, {fb_id: req.body.fb_id}, function(err, signedUser) {
+                            if (err) {
+                                error.body = err;
+                                error.code = 'INTERNAL';
+                                return done(error.code);
+                            }
+                            return done(null, signedUser);
+                        });
+                    }
                     // save the user
+                    else {
                     user.saveLocal(newUser, function(err, signedUser) {
                         if (err) {
                             error.body = err;
                             error.code = 'INTERNAL';
                             return done(error.code);
                         }
-                        return done(null, signedUser);
-                    });
+                            return done(null, signedUser);
+                        });
+                    }
                 }
 
             });    
@@ -176,21 +190,36 @@ module.exports = function(passport) {
         process.nextTick(function() {
 
             // find the user in the database based on their facebook id
-            var fields = ['id'];
-            user.find(fields, { 'fb_id' : profile.id }, function(err, fb_user) {
+            var fields = ['id', 'email', 'name'];
+            user.findFB(fields, { 'id' : profile.id }, function(err, fb_user) {
 
                 // if there is an error, stop everything and return that
                 // ie an error connecting to the database
-                if (err)
-                    return done(err);
+                // if (err)
+                //     return done(err);
 
                 // if the user is found, then log them in
                 if (fb_user) {
-                    user.enrich(fb_user.id, function(err, enriched){
-                        return done(err, enriched);
-                    });
+                    fb_user.fb_id = fb_user.id;
+                    user.find('local_id', { 'fb_id' : fb_user.fb_id }, function(err, fb_user_found) {
                     
-                } else {
+                    user.enrichFromFB(fb_user, function(err, enriched) {
+                        if (fb_user_found){
+                            enriched.flag = 'true';
+                            user.findLocal(fields, {'id' : fb_user_found.local_id}, function(err, sign_user){
+                                
+                                sign_user.name = sign_user.username;
+                                sign_user.fb_id = fb_user.fb_id;
+                                sign_user.flag = enriched.flag;
+                                return done(err, sign_user);
+                            });
+                        }
+                        else {return done(err, enriched);}
+                    });
+                });
+                    
+                } 
+                else {
                     // if there is no user found with that facebook id, create them
                     var fb_user = {};
 

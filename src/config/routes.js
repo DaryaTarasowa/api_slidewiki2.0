@@ -130,7 +130,7 @@ module.exports = function(app, passport) {
                 });
                 
         router.route('/signup')
-                .get(function(req, res) {res.render('signup.ejs', { message: req.flash('signupMessage') });})
+                // .get(function(req, res) {res.render('signup.ejs', { message: req.flash('signupMessage') });})
                 .post(function(req, res, next) {
                     passport.authenticate('local-signup', function(err, user) {
                         if (err) user = {error : [err]};
@@ -146,8 +146,10 @@ module.exports = function(app, passport) {
         router.route('/auth/facebook/callback')
                 .get(function(req, res, next){
                     passport.authenticate('facebook', function(err, user){
-                        console.log(user);
-                        return res.json(user);// change this to redirect to req.caller with set cookie
+                        var minute = 60 * 1000;
+                        if (err) user = {error : [err]};
+                        res.cookie('remember', 1, { maxAge: minute });
+                        res.redirect("http://localhost:3000/" + "facebookLink" + "/"+encodeURIComponent(user.name)+"/"+encodeURIComponent(user.email)+"/"+encodeURIComponent(user.fb_id)+"/"+encodeURIComponent(user.flag));
                     }) (req, res, next);
                 });
                     

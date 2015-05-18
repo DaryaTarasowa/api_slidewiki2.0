@@ -37,22 +37,41 @@ var lib = require('./library');
         var sql = 'SELECT * FROM ?? WHERE id = ? LIMIT 1';
         var inserts = ['fb_users', user.fb_id];
         var sql = mysql.format(sql, inserts);
-        
+
+    
         connection.query(sql, function(err, results){
             if (err) callback(err);
             
             if (results.length){
                 user.fb = results[0];
             }
+
             callback(null, user);
         });    
     };
     
-    exports.findLocal = function(fields, where_obj, callback){
+    exports.getUser = function(fields, where_obj, callback){
         //requires list as first and json.obj as second parameter, like {'username' : username}
         // var sql = 'SELECT ?? FROM ?? WHERE ? LIMIT 1';
         var sql = 'select * from local_users, users where local_users.id = users.local_id AND users.local_id = ? LIMIT 1;'
         var inserts = [where_obj.id];
+        sql = mysql.format(sql, inserts);
+        connection.query(sql, function(err, results){
+            if (err) {
+                callback(err);
+            }
+            
+            if (results.length){
+                callback(null, results[0]);
+            }else{
+                callback('LocalUser not found');
+            } 
+        });
+    };
+
+    exports.findLocal = function(fields, where_obj, callback){
+        var sql = 'select * from local_users where ? LIMIT 1;'
+        var inserts = [where_obj];
         sql = mysql.format(sql, inserts);
         connection.query(sql, function(err, results){
             if (err) callback(err);
@@ -151,6 +170,27 @@ var lib = require('./library');
             
             var sql = "INSERT into users SET ?";
             var inserts = [{local_id : results.insertId}];
+            sql = mysql.format(sql, inserts);
+            
+            connection.query(sql, function(err, results){
+                if (err) callback(err);
+                
+                newUser.id = results.insertId;
+                callback(null, newUser);
+            })            
+        });
+    };
+
+    exports.saveLocalwithFB = function(newUser, payload, callback){
+        var sql = "INSERT into local_users SET ?";
+        var inserts = [newUser];
+        sql = mysql.format(sql, inserts);
+        
+        connection.query(sql, function(err, results){
+            if (err) callback(err);
+            
+            var sql = "INSERT into users SET ?";
+            var inserts = [{local_id : results.insertId, fb_id : payload.fb_id}];
             sql = mysql.format(sql, inserts);
             
             connection.query(sql, function(err, results){
