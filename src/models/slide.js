@@ -4,7 +4,7 @@ var connection = require('../config/config').connection;
 var async = require('async');
 var user = require('./user');
 var googleTranslate = require('google-translate')('AIzaSyBlwXdmxJZ__ZNScwe4zq5r3qh3ebXb26k');
-
+var _ = require('lodash');
 
 
 function getCreatedAt(id, callback){
@@ -16,12 +16,56 @@ function getCreatedAt(id, callback){
         callback(err, results[0].created_at);
     });
 }
+function getDirectTranslations(branch_id, callback){
+    //returns an array of branch_ids of direct translations
+    var sql = "SELECT id, branch_id, language, created_at FROM ?? WHERE ?? = ? GROUP BY branch_id ORDER BY created_at DESC";
+    var inserts = ['slide_revision', 'translated_from', branch_id];
+    sql = mysql.format(sql, inserts);
+    console.log(sql);
+    connection.query(sql, function(err, results) {
+        callback(err, results);
+    });
+}
+
+function getRootForTranslation(branch_id, callback){
+    //gets the original deck looking
+    exports.getTranslatedFrom(branch_id, function(err, parent_branch){
+        if (err) callback(err);
+        console.log(parent_branch);
+        if (parent_branch[0].translated_from === null) {
+            callback(null, branch_id);
+        }else{
+            getRootForTranslation(parent_branch[0].translated_from, callback);
+        }        
+    });            
+};
+
+function getTranslationsFromRoot(root_branch, acc, callback){
+    getDirectTranslations(root_branch, function(err, translations){
+        if (err) callback(err);
+
+        if (translations.length){
+            translations.forEach(function(slide_branch_info, index){
+                acc.push(slide_branch_info);
+                getTranslationsFromRoot(slide_branch_info.branch_id, acc, function(err, result){
+                    if (err) callback(err);
+
+                    if (index === translations.length - 1){
+                        callback(null, acc);
+                    }
+                });                    
+            });
+        }else{
+            callback(null, acc);
+        }            
+    });
+};
 
 function getBranchId(slide_id, callback){
     var sql = "SELECT branch_id FROM ?? WHERE ?? = ? LIMIT 1";
     var inserts = ['slide_revision', 'id', slide_id];
     sql = mysql.format(sql, inserts);
-    
+    console.log(sql);
     connection.query(sql, function(err, results) {
         callback(err, results[0].branch_id);
     });
@@ -52,6 +96,17 @@ function getLastRevision(rev_id, callback){
             callback(err, results[0]);
         });
     });
+}
+
+function getLastRevisionId(branch_id, callback){
+    console.log('slide_id: ' + branch_id);
+    var sql = "SELECT id FROM ?? WHERE ?? = ? ORDER BY created_at DESC LIMIT 1";
+        var inserts = ['slide_revision', 'branch_id', branch_id];
+        sql = mysql.format(sql, inserts);
+
+        connection.query(sql, function(err, results) {
+            callback(err, results[0].id);
+        });
 }
 
 function getContent (rev_id, callback){
@@ -380,6 +435,17 @@ exports.getTitle = function(rev_id, callback){
             callback(err, result);
         });
     };
+    exports.getTranslatedFrom = function(branch_id, callback){        
+
+        var sql = "SELECT translated_from FROM ?? WHERE ?? = ? LIMIT 1";
+        var inserts = ['slide_revision', 'branch_id', branch_id];
+        sql = mysql.format(sql, inserts);
+
+        connection.query(sql, function(err, results) {
+            callback(err, results);
+        });
+         
+    };
     
     exports.update = function(slide_metadata, callback){
         if (slide_metadata.no_new_revision === 'true'){
@@ -546,12 +612,38 @@ exports.getTitle = function(rev_id, callback){
             callback(err, translated);
         });
     };
-    
+
+    exports.getAllTranslations = function(id, callback){
+        getBranchId(id, function(err, branch_id){
+            if (err) callback(err);
+           
+            getRootForTranslation(branch_id, function(err, root_branch_id){
+                if (err) callback(err);
+                
+                getTranslationsFromRoot(root_branch_id, [], function(err, translations){
+                    if (err) callback(err);
+                    
+                    translations = _.sortBy(translations, 'created_at', false);
+                    translations = _.uniq(translations, 'language');
+                    _.forEach(translations, function(chr, key){
+                        lib.languageToJson(chr.language , function(err, language_json){
+                            console.log(language_json);
+                            chr.language = language_json;
+                            return chr;
+                        })                    
+                    });
+                   
+                    callback(null, translations);
+                });
+            });
+        });     
+    };
+     
     exports.rename = function(id, new_title, callback){
         var sql = "UPDATE slide_revision SET title = ? WHERE ?? = ?";
         var inserts = [new_title, 'id', id];
         sql = mysql.format(sql, inserts);
-        console.log(sql);
+
         connection.query(sql, function(err, results) {
             if (err) callback(err);
             return callback(null, true);

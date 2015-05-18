@@ -83,8 +83,8 @@ exports.newSlide = function(req, res){
                 }
             if (error.length){
                     result.error = error;
-                }
-                res.json(result);
+            }
+            res.json(result);
         });
     });
 };
@@ -103,7 +103,20 @@ exports.updateSlide = function(req, res){
                 res.json(new_slide);
     });
 };
-
+exports.getTranslations = function(req, res){
+    var error = [];
+    slide.getAllTranslations(req.params.rev_id, function(err, translations){
+        if (err) {
+            console.log({error : err});
+            error.push(err);
+            return;
+        }
+        if (error.length){
+                translations.error = error;
+        }
+        res.json(translations);
+    });
+};
 exports.translate = slide.translate;
 exports.rename = slide.rename;
 

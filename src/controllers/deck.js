@@ -146,9 +146,22 @@ exports.deleteFrom = function(req, res){
             }
         }
     });
-}
+};
         
-
+exports.getTranslations = function(req, res){
+    var error = [];
+    deck.getAllTranslations(req.params.rev_id, function(err, translations){
+        if (err) {
+            console.log({error : err});
+            error.push(err);
+            return;
+        }
+        if (error.length){
+                translations.error = error;
+        }
+        res.json(translations);
+    });
+};
 exports.translate = deck.translate;
 exports.rename = deck.rename;
 

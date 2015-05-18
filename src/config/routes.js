@@ -83,6 +83,12 @@ module.exports = function(app, passport) {
                             res.json(results);
                         });
                     });
+                    
+        router.route('/content/translations/slide/:rev_id')
+                .get(slideController.getTranslations);
+        
+        router.route('/content/translations/deck/:rev_id')
+                .get(deckController.getTranslations);
         
         router.route('/rename/:type/:id/:new_title')
                 .get( function(req, res){

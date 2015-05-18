@@ -6,6 +6,7 @@ var user = require('../models/user');
 var async = require('async');
 var googleTranslate = require('google-translate')('AIzaSyBlwXdmxJZ__ZNScwe4zq5r3qh3ebXb26k');
 var debug = require('debug');
+var _ = require('lodash');
 
     
     //high-order fundtions
@@ -22,6 +23,7 @@ var debug = require('debug');
             });
         }
     };
+    
     
     
     //private
@@ -74,8 +76,75 @@ var debug = require('debug');
             
         });
     };
+    function getDirectTranslations(branch_id, callback){
+        //returns an array of branch_ids of direct translations
+        var sql = "SELECT id, branch_id, language, created_at FROM ?? WHERE ?? = ? GROUP BY branch_id ORDER BY created_at DESC";
+        var inserts = ['deck_revision', 'translated_from', branch_id];
+        sql = mysql.format(sql, inserts);
+
+        connection.query(sql, function(err, results) {
+            callback(err, results);
+        });
+    }
+    function getRootForTranslation(branch_id, callback){
+        //gets the original deck looking
+        console.log('branch:' + branch_id);
+        exports.getTranslatedFrom(branch_id, function(err, parent_branch){
+            if (err) callback(err);
+            
+            if (parent_branch[0].translated_from === null) {
+                callback(null, branch_id);
+            }else{
+                getRootForTranslation(parent_branch[0].translated_from, callback);
+            }        
+        });            
+    };
+    
+    function getTranslationsFromRoot(root_branch, acc, callback){
+        getDirectTranslations(root_branch, function(err, translations){
+            if (err) callback(err);
+
+            if (translations.length){
+                translations.forEach(function(deck_branch_info, index){
+                    acc.push(deck_branch_info);
+                    getTranslationsFromRoot(deck_branch_info.branch_id, acc, function(err, result){
+                        if (err) callback(err);
+
+                        if (index === translations.length - 1){
+                            callback(null, acc);
+                        }
+                    });                    
+                });
+            }else{
+                callback(null, acc);
+            }            
+        });
+    };
+    
+    function getLastRevisionId(branch_id, callback){
+        var sql = "SELECT id FROM ?? WHERE ?? = ? ORDER BY created_at DESC LIMIT 1";
+            var inserts = ['deck_revision', 'branch_id', branch_id];
+            sql = mysql.format(sql, inserts);
+
+            connection.query(sql, function(err, results) {
+                callback(err, results[0].id);
+            });
+    }
+
     
     //public
+    
+    exports.getTranslatedFrom = function(branch_id, callback){        
+        console.log(branch_id);
+        var sql = "SELECT translated_from FROM ?? WHERE ?? = ? LIMIT 1";
+        var inserts = ['deck_revision', 'branch_id', branch_id];
+        sql = mysql.format(sql, inserts);
+
+        connection.query(sql, function(err, results) {
+            callback(err, results);
+        });
+         
+    };
         
     exports.getTitle = function(rev_id, callback){
         var sql = "SELECT title FROM ?? WHERE ?? = ?";
@@ -140,6 +209,32 @@ var debug = require('debug');
                 }
             });
         });
+    };
+    
+    exports.getAllTranslations = function(id, callback){
+        getBranchId(id, function(err, branch_id){
+            if (err) callback(err);
+           
+            getRootForTranslation(branch_id, function(err, root_branch_id){
+                if (err) callback(err);
+                
+                getTranslationsFromRoot(root_branch_id, [], function(err, translations){
+                    if (err) callback(err);
+                    
+                    translations = _.sortBy(translations, 'created_at', false);
+                    translations = _.uniq(translations, 'language');
+                    _.forEach(translations, function(chr, key){
+                        lib.languageToJson(chr.language , function(err, language_json){
+                            console.log(language_json);
+                            chr.language = language_json;
+                            return chr;
+                        })                    
+                    });
+                   
+                    callback(null, translations);
+                });
+            });
+        });     
     };
     
     exports.getMetadata = function(id, callback){

@@ -23,7 +23,14 @@ var googleTranslate = require('google-translate')('AIzaSyBlwXdmxJZ__ZNScwe4zq5r3
         });
     };
     
-	
+	exports.languageToJson = function(language, callback){
+       
+        var language_array = language.split('-');
+        if (language_array.length !== 2) 
+            callback('The language in the database is wrong');
+        
+        callback(null, {name: language_array[1], code: language_array[0]});
+    };
 
     exports.arrUnique = function(arr) {
         var cleaned = [];
