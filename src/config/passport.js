@@ -207,6 +207,7 @@ module.exports = function(passport) {
                         if (fb_user_found){
                             enriched.flag = 'true';
                             user.findLocal(fields, {'id' : fb_user_found.local_id}, function(err, sign_user){
+                                if (err) return done(err);
                                 
                                 sign_user.name = sign_user.username;
                                 sign_user.fb_id = fb_user.fb_id;
