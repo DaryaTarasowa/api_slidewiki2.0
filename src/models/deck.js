@@ -218,21 +218,29 @@ var _ = require('lodash');
             getRootForTranslation(branch_id, function(err, root_branch_id){
                 if (err) callback(err);
                 
-                getTranslationsFromRoot(root_branch_id, [], function(err, translations){
+                var sql = "SELECT id, branch_id, language, created_at FROM ?? WHERE ?? = ? GROUP BY branch_id ORDER BY created_at DESC";
+                var inserts = ['deck_revision', 'branch_id', root_branch_id];
+                sql = mysql.format(sql, inserts);
+
+                connection.query(sql, function(err, results) {
                     if (err) callback(err);
                     
-                    translations = _.sortBy(translations, 'created_at', false);
-                    translations = _.uniq(translations, 'language');
-                    _.forEach(translations, function(chr, key){
-                        lib.languageToJson(chr.language , function(err, language_json){
-                            console.log(language_json);
-                            chr.language = language_json;
-                            return chr;
-                        })                    
+                    getTranslationsFromRoot(root_branch_id, [], function(err, translations){
+                        if (err) callback(err);
+                        
+                        translations.push(results[0]);
+                        translations = _.sortBy(translations, 'created_at', false);
+                        translations = _.uniq(translations, 'language');
+                        _.forEach(translations, function(chr, key){
+                            lib.languageToJson(chr.language , function(err, language_json){
+                                chr.language = language_json;
+                                return chr;
+                            })                    
+                        });
+                        callback(null, translations);
                     });
-                   
-                    callback(null, translations);
                 });
+                
             });
         });     
     };
