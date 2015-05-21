@@ -1,5 +1,5 @@
 var _ = require('underscore');
-var googleTranslate = require('google-translate')('AIzaSyBlwXdmxJZ__ZNScwe4zq5r3qh3ebXb26k');
+var googleTranslate = require('google-translate')('AIzaSyAy-A64pHjmioVt5kMt7lvnVrFkPJavzvk');
 
 
     
@@ -68,8 +68,7 @@ var googleTranslate = require('google-translate')('AIzaSyBlwXdmxJZ__ZNScwe4zq5r3
                 callback(null, lookup);
             }else{
                 callback('CONNECTION');
-            }
-            
+            }            
         });
     };
     

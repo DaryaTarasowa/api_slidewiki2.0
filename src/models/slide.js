@@ -3,7 +3,7 @@ var lib = require('./library');
 var connection = require('../config/config').connection;
 var async = require('async');
 var user = require('./user');
-var googleTranslate = require('google-translate')('AIzaSyBlwXdmxJZ__ZNScwe4zq5r3qh3ebXb26k');
+var googleTranslate = require('google-translate')('AIzaSyAy-A64pHjmioVt5kMt7lvnVrFkPJavzvk');
 var _ = require('lodash');
 
 
@@ -65,7 +65,7 @@ function getBranchId(slide_id, callback){
     var sql = "SELECT branch_id FROM ?? WHERE ?? = ? LIMIT 1";
     var inserts = ['slide_revision', 'id', slide_id];
     sql = mysql.format(sql, inserts);
-    console.log(sql);
+
     connection.query(sql, function(err, results) {
         callback(err, results[0].branch_id);
     });
@@ -538,10 +538,10 @@ exports.getTitle = function(rev_id, callback){
         }
     };
     
-    exports.translate = function(user_id, slide_id, source, target, callback){
+    exports.translate = function(user_id, slide_id, source, target, targetForDB, callback){
         
         var translated = {};
-        
+
         
         async.waterfall([
             function getSlideMetadata(cbAsync){
@@ -551,22 +551,13 @@ exports.getTitle = function(rev_id, callback){
                 });
             },
             
-            function getTargetName(metadata, cbAsync){
-                
-                lib.getLanguages(function(err, languageArray){
-                    if (err) cbAsync(err);
-                    var targetForDB = languageArray[target];
-                    translated.language = target + '-' + targetForDB;
-                    
-                    cbAsync(null, metadata);
-                });
-            },
-            
             function translate_title(metadata, cbAsync){
+               
                 googleTranslate.translate(metadata.title, source, target, function(err, translation){
                     if (err) cbAsync(err);
-                    translated.title = translation.translatedText;
-                    
+                    if (translation){
+                        translated.title = translation.translatedText;
+                    }                    
                     cbAsync(err, metadata);
                 });
             },
@@ -577,26 +568,26 @@ exports.getTitle = function(rev_id, callback){
                     string = splitBody(string);
                 }
                 googleTranslate.translate(string, source, target, function(err, translation){
-                    if (err) cbAsync(err);
-                    
+              
                     var translatedText = '';
-                    
-                    if (translation.length > 1){
-                        
-                        translation.forEach(function(chunk){
-                            translatedText += chunk.translatedText;
-                        });
-                    }else{
-                        translatedText = translation.translatedText;
-                    }
+                    if (translation){
+                        if (translation.length > 1){                        
+                            translation.forEach(function(chunk){
+                                translatedText += chunk.translatedText;
+                            });
+                        }else{
+                            translatedText = translation.translatedText;
+                        }
+                    }                    
                     translated.body = translatedText;
-                    cbAsync(null, metadata);
+                    cbAsync(err, metadata);
                 });
             },            
             function save(metadata, cbAsync){
                 translated.user_id = user_id;
                 translated.translated_from_revision = slide_id;
                 translated.translation_status = 'google';
+                translated.language = targetForDB;
                 getBranchId(slide_id, function(err, branch_id){
                     if (err) cbAsync(err);
                     translated.translated_from = branch_id;
