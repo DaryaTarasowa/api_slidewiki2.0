@@ -6,7 +6,7 @@ Installation guide
 1. Install nodeJS
 2. Install npm (nodeJS package manager) 
 3. Install dependencies: npm install
-4. Install nodemon
+4. Install nodemon: npm install nodemon -g
 5. Install MYSQL
 6. Import the SlideWiki database dump
 7. Copy the config.example file as config.js; adjust the settings for database connection. 
