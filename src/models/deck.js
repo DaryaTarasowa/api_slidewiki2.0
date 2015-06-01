@@ -40,20 +40,14 @@ var _ = require('lodash');
     };
     
     function translateContent(user_id, deck_id, source, target, metadata, callback){
-        console.log('start translating deck ' + deck_id);
         getChildren(deck_id, function(err, children){
             if (err) callback(err);
             if (children.length){
-                console.log('deck ' + deck_id + ' has ' + children.length + ' children');
                 var i = children.length;
                 children.forEach(function(child, index){
-                    console.log('Go through children for deck ' + deck_id);
                     if (child.type === 'deck'){
-                        console.log('Start translating deck ' + child.id);
                         exports.translate(user_id, child.id, target, function(err, results){
-                            console.log('While translating deck ' + child.id + " got an error: " + err);
                             if (results){
-                                console.log('Deck ' + child.id + 'was translated as deck ' + results.id);
                                 child.id = results.id;                                                          
                             }else{
                                 console.log("problem in deck " + child);
@@ -66,7 +60,7 @@ var _ = require('lodash');
                         });
                     }else{
                         //console.log('Start translating slide ' + child.id);
-                        slide.translate(user_id, child.id, source, target, metadata.language, function(err, translated){                            
+                        slide.handleTranslation(user_id, child.id, source, target, metadata.language, function(err, translated){                            
                             if (translated){                                
                                 child.id = translated.id;                               
                             } 

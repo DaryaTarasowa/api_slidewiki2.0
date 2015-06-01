@@ -340,7 +340,77 @@ exports.getTitle = function(rev_id, callback){
             }            
         });
     };
-    
+    exports.handleNewForTranslation = function(slide_metadata, callback){
+        getRootForTranslation(slide_metadata.translated_from, function(err, root_branch_id){
+                if (err) callback(err);
+                
+                var sql = "SELECT id, branch_id, language, created_at FROM ?? WHERE ?? = ? GROUP BY branch_id ORDER BY created_at DESC";
+                var inserts = ['slide_revision', 'branch_id', root_branch_id];
+                sql = mysql.format(sql, inserts);
+
+                connection.query(sql, function(err, results) {
+                    if (err) callback(err);
+                
+                    getTranslationsFromRoot(root_branch_id, [], function(err, translations){
+                        if (err) callback(err);
+                        
+                        translations.push(results[0]);
+                        translations = _.sortBy(translations, 'created_at', false);
+                        translations = _.uniq(translations, 'language');
+                        var x = _.find(translations, function(chr) {
+                            return chr.language === slide_metadata.language;
+                        });
+                        if (x){ //already exists a slide branch on target language
+                            console.log(x);
+                            slide_metadata.branch_id = x.branch_id;
+                            slide_metadata.based_on = x.id;
+                            exports.newRevision(slide_metadata, callback);
+                        }else{
+                            exports.new(slide_metadata, callback);
+                        }
+                    });
+                });
+            });
+    };
+    exports.newRevision = function(slide_metadata, callback){
+        var injection = {};
+        
+        injection.title = slide_metadata.title;
+        injection.user_id = slide_metadata.user_id;
+        injection.body = slide_metadata.body;
+        if (!injection.body) injection.body = '';
+        injection.branch_owner = slide_metadata.user_id;
+        injection.language = slide_metadata.language;
+        if (!injection.language) injection.language = null;
+        injection.translated_from = slide_metadata.translated_from;
+        injection.translated_from_revision = slide_metadata.translated_from_revision;
+        injection.translation_status = slide_metadata.translation_status || 'original';
+        injection.branch_id = slide_metadata.branch_id;
+        injection.based_on = slide_metadata.based_on;
+        
+        var sql = "INSERT into slide_revision SET ?";
+        var inserts = [injection];
+        sql = mysql.format(sql, inserts);
+
+        console.log(sql);
+        connection.query(sql, function(err, qresults){
+            if (err) cbAsync(err);
+
+            injection.id = qresults.insertId;
+            delete injection.branch_id;
+            delete injection.branch_owner;
+            delete injection.language;
+
+            getCreatedAt(injection.id, function(err, created_at){
+                if (err) callback(err);
+                
+                injection.created_at = created_at;
+                callback(null, injection);
+            });
+        });
+                
+        
+    };
     exports.new = function(slide_metadata, callback){
         var injection = {};
         
@@ -538,10 +608,28 @@ exports.getTitle = function(rev_id, callback){
         }
     };
     
+    exports.handleTranslation = function(user_id, slide_id, source, target, targetForDB, callback){
+        getBranchId(slide_id, function(err, branch_id){
+            if (err) callback(err);
+            
+            var sql = "SELECT * FROM slide_revision WHERE ?? = ? AND ?? = ? ORDER BY created_at DESC";
+            var inserts = ['translated_from', branch_id, 'language', targetForDB];
+            sql = mysql.format(sql, inserts);
+            connection.query(sql, function(err, results){
+                if (err) callback(err);
+                
+                if (results.length){
+                    callback(null, results[0]);
+                }else{
+                    exports.translate(user_id, slide_id, source, target, targetForDB, callback);
+                }
+            });
+        });        
+    };
+    
     exports.translate = function(user_id, slide_id, source, target, targetForDB, callback){
         
         var translated = {};
-
         
         async.waterfall([
             function getSlideMetadata(cbAsync){
@@ -591,7 +679,8 @@ exports.getTitle = function(rev_id, callback){
                 getBranchId(slide_id, function(err, branch_id){
                     if (err) cbAsync(err);
                     translated.translated_from = branch_id;
-                    exports.new(translated, function(err, saved){
+                    
+                    exports.handleNewForTranslation(translated, function(err, saved){
                         if (err) cbAsync(err);
                         translated.id = saved.id;
                         cbAsync(err, translated);
@@ -611,20 +700,29 @@ exports.getTitle = function(rev_id, callback){
             getRootForTranslation(branch_id, function(err, root_branch_id){
                 if (err) callback(err);
                 
-                getTranslationsFromRoot(root_branch_id, [], function(err, translations){
+                var sql = "SELECT id, branch_id, language, created_at FROM ?? WHERE ?? = ? GROUP BY branch_id ORDER BY created_at DESC";
+                var inserts = ['slide_revision', 'branch_id', root_branch_id];
+                sql = mysql.format(sql, inserts);
+
+                connection.query(sql, function(err, results) {
                     if (err) callback(err);
-                    
-                    translations = _.sortBy(translations, 'created_at', false);
-                    translations = _.uniq(translations, 'language');
-                    _.forEach(translations, function(chr, key){
-                        lib.languageToJson(chr.language , function(err, language_json){
-                            console.log(language_json);
-                            chr.language = language_json;
-                            return chr;
-                        })                    
+                
+                    getTranslationsFromRoot(root_branch_id, [], function(err, translations){
+                        if (err) callback(err);
+                        
+                        translations.push(results[0]);
+                        translations = _.sortBy(translations, 'created_at', false);
+                        translations = _.uniq(translations, 'language');
+                        _.forEach(translations, function(chr, key){
+                            lib.languageToJson(chr.language , function(err, language_json){
+                                console.log(language_json);
+                                chr.language = language_json;
+                                return chr;
+                            })                    
+                        });
+
+                        callback(null, translations);
                     });
-                   
-                    callback(null, translations);
                 });
             });
         });     
