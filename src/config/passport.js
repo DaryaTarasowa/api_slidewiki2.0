@@ -51,52 +51,58 @@ module.exports = function(passport) {
             var error = {};
             var fields = ['id'];
             user.findLocal(fields, {'username' : username}, function(err, sign_user) {
-                // if (err) {
-                //     console.log(err);
-                //     error.body = err;
-                //     error.code = 'INTERNAL';
-                //     return done(error.code);
-                // }
                 
                 // check to see if theres already a user with that email
                 if (sign_user) {
-                    // console.log(sign_user);
-                    error.body = 'Username is already in use';
-                    error.code = 'WRONG_USERNAME';
-                    return done(error.code);
+                        error.body = 'Username is already in use';
+                        error.code = 'WRONG_USERNAME';
+                        return done(error.code);
                     
                 } else {
 
-                    // if there is no user with that email
-                    // create the user
-                    var newUser            = {};
-
-                    // set the user's local credentials
-                    newUser.username    = username;
-                    newUser.password = user.generateHash(password);
-                    newUser.email = req.body.email;
-                    if (req.body.fb_id) {
-
-                        user.saveLocalwithFB(newUser, {fb_id: req.body.fb_id}, function(err, signedUser) {
-                            if (err) {
-                                error.body = err;
-                                error.code = 'INTERNAL';
+                    user.findLocal(fields, {'email' : req.body.email}, function(err, sign_user) {
+                
+                // check to see if theres already a user with that email
+                        if (sign_user) {
+                                error.body = 'Email is already in use';
+                                error.code = 'WRONG_EMAIL';
                                 return done(error.code);
+                            
+                        } else {
+
+                            // if there is no user with that email
+                            // create the user
+                            var newUser            = {};
+
+                            // set the user's local credentials
+                            newUser.username    = username;
+                            newUser.password = user.generateHash(password);
+                            newUser.email = req.body.email;
+                            if (req.body.fb_id) {
+
+                                user.saveLocalwithFB(newUser, {fb_id: req.body.fb_id}, function(err, signedUser) {
+                                    console.log("Saving user " + newUser.username)
+                                    if (err) {
+                                        error.body = err;
+                                        error.code = 'INTERNAL';
+                                        return done(error.code);
+                                    }
+                                    return done(null, signedUser);
+                                });
                             }
-                            return done(null, signedUser);
-                        });
-                    }
-                    // save the user
-                    else {
-                    user.saveLocal(newUser, function(err, signedUser) {
-                        if (err) {
-                            error.body = err;
-                            error.code = 'INTERNAL';
-                            return done(error.code);
+                            // save the user
+                            else {
+                            user.saveLocal(newUser, function(err, signedUser) {
+                                if (err) {
+                                    error.body = err;
+                                    error.code = 'INTERNAL';
+                                    return done(error.code);
+                                }
+                                    return done(null, signedUser);
+                                });
+                            }
                         }
-                            return done(null, signedUser);
-                        });
-                    }
+                    });
                 }
 
             });    
@@ -200,11 +206,13 @@ module.exports = function(passport) {
 
                 // if the user is found, then log them in
                 if (fb_user) {
+                    console.log(fb_user);
                     fb_user.fb_id = fb_user.id;
                     user.find('local_id', { 'fb_id' : fb_user.fb_id }, function(err, fb_user_found) {
                     
                     user.enrichFromFB(fb_user, function(err, enriched) {
                         if (fb_user_found){
+                            console.log(fb_user);
                             enriched.flag = 'true';
                             user.findLocal(fields, {'id' : fb_user_found.local_id}, function(err, sign_user){
                                 if (err) return done(err);
