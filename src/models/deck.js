@@ -181,12 +181,13 @@ var _ = require('lodash');
                         if (child.type === 'deck'){
                             exports.getTree(child.id, child, function(err, child_child){//get the tree for a child
                                 if (err) callback(err);
-                                
-                                acc.children[child_child.position - 1] = child_child;
-                                new_children = acc.children.filter(function(value) { return value !== null });
-                                if(new_children.length === children.length) {
-                                    acc.children = new_children;
-                                    callback(null, acc);
+                                else {
+                                    acc.children[child_child.position - 1] = child_child;
+                                    new_children = acc.children.filter(function(value) { return value !== null });
+                                    if(new_children.length === children.length) {
+                                        acc.children = new_children;
+                                        callback(null, acc);
+                                    }
                                 }
                             });                            
                         }
