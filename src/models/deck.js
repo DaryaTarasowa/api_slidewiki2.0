@@ -4,7 +4,7 @@ var lib = require('./library');
 var connection = require('../config/config').connection;
 var user = require('../models/user');
 var async = require('async');
-var googleTranslate = require('google-translate')('AIzaSyBlwXdmxJZ__ZNScwe4zq5r3qh3ebXb26k');
+var googleTranslate = require('google-translate')('AIzaSyAy-A64pHjmioVt5kMt7lvnVrFkPJavzvk');
 var debug = require('debug');
 var _ = require('lodash');
 
@@ -40,38 +40,40 @@ var _ = require('lodash');
     };
     
     function translateContent(user_id, deck_id, source, target, metadata, callback){
-   
         getChildren(deck_id, function(err, children){
             if (err) callback(err);
-            
             if (children.length){
+                var i = children.length;
                 children.forEach(function(child, index){
-                
                     if (child.type === 'deck'){
                         exports.translate(user_id, child.id, target, function(err, results){
-                            if (err) callback(err);
-                            
-                            children[index].id = results.id;
-
-                            if (index === children.length - 1){
-                                callback(null, metadata, children);
+                            if (results){
+                                child.id = results.id;                                                          
+                            }else{
+                                console.log("problem in deck " + child);
+                            }
+                            i--;
+                            //console.log('We have ' + i + ' children left');
+                            if (i === 0){
+                                callback(err, metadata, children);
                             }
                         });
-
                     }else{
-                        slide.translate(user_id, child.id, source, target, function(err, translated){
-                            if (err) callback(err);
-                            
-                            children[index].id = translated.id;
-
-                            if (index === children.length - 1){
-                                callback(null, metadata, children);
+                        //console.log('Start translating slide ' + child.id);
+                        slide.handleTranslation(user_id, child.id, source, target, metadata.language, function(err, translated){                            
+                            if (translated){                                
+                                child.id = translated.id;                               
+                            } 
+                            i--;
+                            //console.log('We have ' + i + ' children left');
+                            if (i === 0){
+                                callback(err, metadata, children);
                             }
                         });
                     }
                 });
             }else{
-                callback('No children of deck ' + deck_id);
+                callback('While translating No children of deck ' + deck_id);
             }
             
         });
@@ -500,6 +502,7 @@ var _ = require('lodash');
             function getNewBranchId(cbAsync){
                 var sql = "SELECT max(branch_id) AS max_brunch FROM deck_revision WHERE 1";
                 connection.query(sql, function(err, results){
+     
                     if (err) cbAsync(err);
                     
                     deck.branch_id = results[0].max_brunch + 1;
@@ -509,10 +512,10 @@ var _ = require('lodash');
             function saveDeck(deck, cbAsync){
                 var sql = "INSERT into deck_revision SET ?";
                 var inserts = [deck];
-                sql = mysql.format(sql, inserts);
-                
+                sql = mysql.format(sql, inserts);                
                 
                 connection.query(sql, function(err, qresults){
+                
                     if (err) cbAsync(err);
                     
                     deck.id = qresults.insertId;
@@ -523,45 +526,27 @@ var _ = require('lodash');
         callback);
     };
     
-    exports.addContent = function(deck_id, children, callback){
+    exports.addDirectContent = function(deck_id, children, callback){
         var injection = {};
         if (children.length){
+            var i = children.length;
             children.forEach(function(child, index){
                 injection.deck_revision_id = deck_id;
                 injection.item_id = child.id;
                 injection.item_type = child.type;
                 injection.position = child.position;
 
-
                 var sql = 'INSERT INTO deck_content SET ?';
                 var inserts = [injection];
                 sql = mysql.format(sql, inserts);
                 
-                if (child.type === 'deck'){
-                    connection.query(sql, function(err, results){
-                        if (err) callback(err);
-
-                        getChildren(child.id, function(err, grand_children){
-                            if (err) callback(err);
-                            exports.addContent(child.id, grand_children, function(err, message){
-                                if (err) callback(err);
-                                
-                                if (index === children.length - 1){
-                                    callback(null, message);
-                                }
-                            });
-                        });
-
-                    });
-                }else{
-                    connection.query(sql, function(err, results){
-                        if (err) callback(err);
-
-                        if (index === children.length -1){
-                            callback(null, 'done!');
-                        }
-                    });
-                }
+                connection.query(sql, function(err, results){
+                    if (err) callback(err);
+                    i--;
+                    if (i === 0){
+                        callback(null, 'done!');
+                    }
+                });
             });
         }else{
             callback('No children given for deck ' + deck_id);
@@ -616,29 +601,30 @@ var _ = require('lodash');
                 
                 if (!metadata.title) {metadata.title = '';}
                 googleTranslate.translate(metadata.title, source, target, function(err, translation){
-                    if (err) cbAsync(err);
-                    
-                    metadata.title = translation.translatedText;
-                    cbAsync(null, metadata);
+                    if (translation){
+                        metadata.title = translation.translatedText;
+                    }                    
+                    cbAsync(err, metadata);
                 });
             },
             
             function translate_desciption(metadata, cbAsync){
                 if (!metadata.description) {metadata.description = '';}
                 googleTranslate.translate(metadata.description, source, target, function(err, translation){
-                    if (err) cbAsync(err);
+                    if (translation){
+                        metadata.description = translation.translatedText;
+                    }
                     
-                    metadata.description = translation.translatedText;
-                    cbAsync(null, metadata);
+                    cbAsync(err, metadata);
                 });
             },
             function translate_footer(metadata, cbAsync){
                 if (!metadata.footer_text) {metadata.footer_text = '';}
                 googleTranslate.translate(metadata.footer_text, source, target, function(err, translation){
-                    if (err) cbAsync(err);
-                    
-                    metadata.footer_text = translation.translatedText;
-                    cbAsync(null, metadata);
+                    if (translation){
+                        metadata.footer_text = translation.translatedText;
+                    }                    
+                    cbAsync(err, metadata);
                 });
             },
             function save(metadata, cbAsync){
@@ -661,9 +647,8 @@ var _ = require('lodash');
         ], callback);
     }
     
-    exports.translate = function(user_id, deck_id, target, callback){        
+    exports.translate = function(user_id, deck_id, target, callback){  
        
-        
         async.waterfall([
             
             function process_translate_metadata(cbAsync){
@@ -675,7 +660,7 @@ var _ = require('lodash');
             },
             
             function saveChildren(translated, children, cbAsync){
-                exports.addContent(translated.id, children, function(err, results){
+                exports.addDirectContent(translated.id, children, function(err, results){
                     cbAsync(err, translated);
                 });
             }
