@@ -72,6 +72,7 @@ var lib = require('./library');
     exports.findLocal = function(fields, where_obj, callback){
         var sql = 'select * from local_users where ? LIMIT 1;'
         var inserts = [where_obj];
+
         sql = mysql.format(sql, inserts);
         connection.query(sql, function(err, results){
             if (err) callback(err);
@@ -210,17 +211,9 @@ var lib = require('./library');
         connection.query(sql, function(err, results){
             if (err) callback(err);
             
-            var sql = "INSERT into users SET ?";
-            var inserts = [{fb_id : fbUser.id}];
-            sql = mysql.format(sql, inserts);
-            
-            connection.query(sql, function(err, results){
-                if (err) callback(err);
-                
-                fbUser.fb_id = fbUser.id;
-                fbUser.id = results.insertId;
-                callback(null, fbUser);
-            }); 
+            fbUser.fb_id = fbUser.id;
+            fbUser.id = results.insertId;
+            callback(null, fbUser);
         });
     };
     

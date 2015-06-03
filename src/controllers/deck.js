@@ -6,7 +6,7 @@ exports.getTree = function(req, res) {
         deck.getTree(req.params.rev_id, {}, function(err, tree) {
             if (err) {
                     console.log({error : err});
-                    error.push(err);
+                    tree = {error : error};
                 }
 
                 if (error.length){
