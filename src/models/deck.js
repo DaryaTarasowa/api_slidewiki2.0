@@ -22,10 +22,7 @@ var _ = require('lodash');
                 ifSlideThen(child_child, callback);
             });
         }
-    };
-    
-    
-    
+    };   
     //private
     
     function getChildren(id, callback){
@@ -39,39 +36,106 @@ var _ = require('lodash');
         });	
     };
     
-    function translateContent(user_id, deck_id, source, target, metadata, callback){
-        getChildren(deck_id, function(err, children){
+    function getMetadataForTranslation(deck_id, target, callback){
+       
+        async.waterfall([
+            function setMaxBranchId(cbAsync){ //set current max branch_id 
+                var sql = "SELECT max(branch_id) AS max_brunch FROM deck_revision WHERE 1";
+                connection.query(sql, function(err, results){
+     
+                    if (err) cbAsync(err);
+                    
+                    exports.currentMaxBranchID = results[0].max_brunch;
+                    cbAsync(null);
+                });
+            },
+            
+            function setMaxBranchId_slide(cbAsync){ //the same for slide
+                var sql = "SELECT max(branch_id) AS max_brunch FROM slide_revision WHERE 1";
+                connection.query(sql, function(err, results){
+     
+                    if (err) cbAsync(err);
+                    
+                    exports.currentMaxBranchID_slide = results[0].max_brunch;
+                    cbAsync(null);
+                });
+            },
+            
+            function getDeckMetadata(cbAsync){
+                exports.getMetadataShort(deck_id, function(err, metadata){
+                    if (err) cbAsync(err);
+                    delete metadata.created_at;
+                    delete metadata.id;
+                    
+                    cbAsync(null, metadata);
+                });
+            },
+            
+            function getSourceCode(metadata, cbAsync){
+                metadata.source = metadata.language.split('-')[0];
+                cbAsync(null, metadata);
+            },
+            
+            function getTargetName(metadata, cbAsync){
+                
+                lib.getLanguages(function(err, languageArray){
+                    if (err) cbAsync(err);
+                    
+                    var targetForDB = languageArray[target];
+                    metadata.language = target + '-' + targetForDB;
+                    metadata.target = target;
+                    metadata.translated_from_revision = deck_id;
+                    metadata.deck_id = deck_id;
+                    cbAsync(null, metadata);
+                });
+            }        
+            
+        ], callback); 
+    };
+    exports.currentMaxBranchID;
+    
+    function translateContent(user_id, metadata, callback){
+        getChildren(metadata.deck_id, function(err, children){
             if (err) callback(err);
             if (children.length){
-                var i = children.length;
-                children.forEach(function(child, index){
-                    if (child.type === 'deck'){
-                        exports.translate(user_id, child.id, target, function(err, results){
-                            if (results){
-                                child.id = results.id;                                                          
-                            }else{
-                                console.log("problem in deck " + child);
-                            }
-                            i--;
-                            //console.log('We have ' + i + ' children left');
-                            if (i === 0){
-                                callback(err, metadata, children);
-                            }
-                        });
-                    }else{
-                        //console.log('Start translating slide ' + child.id);
-                        slide.handleTranslation(user_id, child.id, source, target, metadata.language, function(err, translated){                            
-                            if (translated){                                
-                                child.id = translated.id;                               
-                            } 
-                            i--;
-                            //console.log('We have ' + i + ' children left');
-                            if (i === 0){
-                                callback(err, metadata, children);
-                            }
-                        });
-                    }
+                var sql = "SELECT max(branch_id) AS max_brunch FROM deck_revision WHERE 1";
+                connection.query(sql, function(err, results){
+     
+                    if (err) cbAsync(err);
+                    
+                    exports.currentMaxBranchID = results[0].max_brunch;
+                    var i = children.length;
+                    children.forEach(function(child, index){
+                        if (child.type === 'deck'){ 
+                            
+                            exports.handleTranslation(user_id, child.id, metadata.target, function(err, results){
+                                if (results){
+                                    child.id = results.id;                                                          
+                                }else{
+                                    console.log("problem in deck " + child);
+                                }
+                                i--;
+                                //console.log('We have ' + i + ' children left');
+                                if (i === 0){
+                                    callback(err, metadata, children);
+                                }
+                            });
+                        }else{
+                            //console.log('Start translating slide ' + child.id);
+                            slide.handleTranslation(user_id, child.id, metadata.source, metadata.target, metadata.language, function(err, translated){                            
+                                if (translated){                                
+                                    child.id = translated.id;                               
+                                } 
+                                i--;
+                                //console.log('We have ' + i + ' children left');
+                                if (i === 0){
+                                    callback(err, metadata, children);
+                                }
+                            });
+                        }
+                    });
                 });
+                
             }else{
                 callback('While translating No children of deck ' + deck_id);
             }
@@ -495,34 +559,61 @@ var _ = require('lodash');
         });
     };
     
-    exports.new = function(deck, callback){
-        deck.branch_owner = deck.user_id;
-        async.waterfall([
-            function getNewBranchId(cbAsync){
-                var sql = "SELECT max(branch_id) AS max_brunch FROM deck_revision WHERE 1";
-                connection.query(sql, function(err, results){
-     
-                    if (err) cbAsync(err);
-                    
-                    deck.branch_id = results[0].max_brunch + 1;
-                    cbAsync(null, deck);
-                });
-            },
-            function saveDeck(deck, cbAsync){
-                var sql = "INSERT into deck_revision SET ?";
-                var inserts = [deck];
-                sql = mysql.format(sql, inserts);                
-                
-                connection.query(sql, function(err, qresults){
-                
-                    if (err) cbAsync(err);
-                    
-                    deck.id = qresults.insertId;
-                    cbAsync(null, deck);
-                });
-            }
-        ],
-        callback);
+    exports.newRevision = function(deck, callback){
+        var injection = {};
+        injection.title = deck.title;
+        injection.language = deck.language;
+        injection.description = deck.description;
+        injection.footer_text = deck.footer_text;
+        injection.origin = deck.origin;
+        injection.translated_from_revision = deck.translated_from_revision;
+        injection.user_id = deck.user_id;
+        injection.translation_status = deck.translation_status;
+        injection.translated_from = deck.translated_from;
+        injection.branch_owner = deck.branch_owner;
+        injection.branch_id = deck.branch_id;
+        injection.based_on = deck.based_on;
+        
+        var sql = "INSERT into deck_revision SET ?";
+        var inserts = [injection];
+        sql = mysql.format(sql, inserts);                
+
+        connection.query(sql, function(err, qresults){
+
+            if (err) cbAsync(err);
+
+            deck.id = qresults.insertId;
+            callback(null, deck);
+        });
+    };
+    
+    exports.new = function(deck, callback){   
+        
+        var injection = {};
+        injection.title = deck.title;
+        injection.language = deck.language;
+        injection.description = deck.description;
+        injection.footer_text = deck.footer_text;
+        injection.origin = deck.origin;
+        injection.translated_from_revision = deck.translated_from_revision;
+        injection.user_id = deck.user_id;
+        injection.translation_status = deck.translation_status;
+        injection.translated_from = deck.translated_from;
+        injection.branch_owner = deck.user_id;
+        injection.branch_id = deck.branch_id;
+        injection.based_on = null;
+
+        var sql = "INSERT into deck_revision SET ?";
+        var inserts = [injection];
+        sql = mysql.format(sql, inserts);                
+        connection.query(sql, function(err, qresults){
+
+            if (err) cbAsync(err);
+            
+            deck.id = qresults.insertId;
+            callback(null, deck);
+        });
+          
     };
     
     exports.addDirectContent = function(deck_id, children, callback){
@@ -565,51 +656,26 @@ var _ = require('lodash');
                 callback('Not found deck ' + deck_id);
             }
         });
-    }
+    };
         
-    function translateMetadata(user_id, deck_id, target, callback){
-        var source = '';
+    function translateMetadata(user_id, metadata, callback){
+
         async.waterfall([
-            function getDeckMetadata(cbAsync){
-                exports.getMetadataShort(deck_id, function(err, metadata){
-                    if (err) cbAsync(err);
-                    delete metadata.created_at;
-                    delete metadata.id;
-                    
-                    cbAsync(null, metadata);
-                });
-            },
-            
-            function getSourceCode(metadata, cbAsync){
-                source = metadata.language.split('-')[0];
-                cbAsync(null, metadata);
-            },
-            
-            function getTargetName(metadata, cbAsync){
-                
-                lib.getLanguages(function(err, languageArray){
-                    if (err) cbAsync(err);
-                    
-                    var targetForDB = languageArray[target];
-                    metadata.language = target + '-' + targetForDB;
-                    cbAsync(null, metadata);
-                });
-            },
-            
-            function translate_title(metadata, cbAsync){
-                
+                       
+            function translate_title(cbAsync){                
                 if (!metadata.title) {metadata.title = '';}
-                googleTranslate.translate(metadata.title, source, target, function(err, translation){
+                googleTranslate.translate(metadata.title, metadata.source, metadata.target, function(err, translation){
                     if (translation){
                         metadata.title = translation.translatedText;
-                    }                    
+                    }  
+                      
                     cbAsync(err, metadata);
                 });
             },
-            
+          
             function translate_desciption(metadata, cbAsync){
                 if (!metadata.description) {metadata.description = '';}
-                googleTranslate.translate(metadata.description, source, target, function(err, translation){
+                googleTranslate.translate(metadata.description, metadata.source, metadata.target, function(err, translation){
                     if (translation){
                         metadata.description = translation.translatedText;
                     }
@@ -619,7 +685,7 @@ var _ = require('lodash');
             },
             function translate_footer(metadata, cbAsync){
                 if (!metadata.footer_text) {metadata.footer_text = '';}
-                googleTranslate.translate(metadata.footer_text, source, target, function(err, translation){
+                googleTranslate.translate(metadata.footer_text, metadata.source, metadata.target, function(err, translation){
                     if (translation){
                         metadata.footer_text = translation.translatedText;
                     }                    
@@ -627,18 +693,19 @@ var _ = require('lodash');
                 });
             },
             function save(metadata, cbAsync){
-                metadata.user_id = user_id;
-                metadata.translated_from_revision = deck_id;
+                
+                metadata.user_id = user_id;               
                 metadata.translation_status = 'in_progress';
-                getBranchId(deck_id, function(err, branch_id){
+                
+                getBranchId(metadata.deck_id, function(err, branch_id){
                     if (err) cbAsync(err);
                     
                     metadata.translated_from = branch_id;
+                   
                     exports.new(metadata, function(err, saved){
                         if (err) cbAsync(err);
                         
                         metadata.id = saved.id;
-                        metadata.source = source;
                         cbAsync(null, metadata);
                     });
                 });                
@@ -646,16 +713,113 @@ var _ = require('lodash');
         ], callback);
     }
     
-    exports.translate = function(user_id, deck_id, target, callback){  
-       
+    function translateMetadataNewRevision(user_id, metadata, callback){
+        
+        async.waterfall([
+                       
+            function translate_title(cbAsync){
+                
+                if (!metadata.title) {metadata.title = '';}
+                googleTranslate.translate(metadata.title, metadata.source, metadata.target, function(err, translation){
+                    if (translation){
+                        metadata.title = translation.translatedText;
+                    }                    
+                    cbAsync(err, metadata);
+                });
+            },
+            
+            function translate_desciption(metadata, cbAsync){
+                if (!metadata.description) {metadata.description = '';}
+                googleTranslate.translate(metadata.description, metadata.source, metadata.target, function(err, translation){
+                    if (translation){
+                        metadata.description = translation.translatedText;
+                    }
+                    
+                    cbAsync(err, metadata);
+                });
+            },
+            function translate_footer(metadata, cbAsync){
+                if (!metadata.footer_text) {metadata.footer_text = '';}
+                googleTranslate.translate(metadata.footer_text, metadata.source, metadata.target, function(err, translation){
+                    if (translation){
+                        metadata.footer_text = translation.translatedText;
+                    }                    
+                    cbAsync(err, metadata);
+                });
+            },
+            function saveNewRevision(metadata, cbAsync){
+                metadata.user_id = user_id;               
+                metadata.translation_status = 'in_progress';
+                exports.newRevision(metadata, function(err, saved){
+                    if (err) cbAsync(err);
+
+                    metadata.id = saved.id;
+                    cbAsync(null, metadata);
+                });                               
+            }
+        ], callback);
+    }
+    exports.currentMaxBranchID_slide;
+    
+    exports.handleTranslation = function(user_id, deck_id, target, callback){
+        getMetadataForTranslation(deck_id, target, function(err, metadata){
+            if (err) callback(err);
+            
+            getBranchId(deck_id, function(err, branch_id){
+                if (err) callback(err);
+
+                var sql = "SELECT * FROM deck_revision WHERE ?? = ? AND ?? = ? ORDER BY created_at DESC";
+                var inserts = ['translated_from', branch_id, 'language', metadata.language];
+                sql = mysql.format(sql, inserts);
+                
+                connection.query(sql, function(err, results){
+                    if (err) callback(err);
+
+                    if (results.length){
+                        metadata.based_on = results[0].id;
+                        metadata.translated_from = branch_id;
+                        metadata.branch_id = results[0].branch_id;
+                        metadata.branch_owner = results[0].branch_owner;
+                        exports.translateNewRevision(user_id, metadata, callback);
+                    }else{
+                        metadata.branch_id = exports.currentMaxBranchID + 1;
+                        exports.currentMaxBranchID++;
+                        exports.translate(user_id, metadata, callback);
+                    }
+                });
+            }); 
+        });
+    };
+    
+    exports.translateNewRevision = function(user_id, metadata, callback){
         async.waterfall([
             
             function process_translate_metadata(cbAsync){
-                translateMetadata(user_id, deck_id, target, cbAsync);
+                translateMetadataNewRevision(user_id, metadata, cbAsync);
             },
             
             function save_content(metadata, cbAsync){
-                 translateContent(user_id, deck_id, metadata.source, target, metadata, cbAsync);
+                 translateContent(user_id, metadata, cbAsync);
+            },
+            
+            function saveChildren(translated, children, cbAsync){
+                exports.addDirectContent(translated.id, children, function(err, results){
+                    cbAsync(err, translated);
+                });
+            }
+        ], callback);
+    };
+    
+    exports.translate = function(user_id, metadata, callback){  
+        console.log(metadata);
+        async.waterfall([
+            
+            function process_translate_metadata(cbAsync){
+                translateMetadata(user_id, metadata, cbAsync);
+            },
+            
+            function save_content(metadata, cbAsync){
+                 translateContent(user_id, metadata, cbAsync);
             },
             
             function saveChildren(translated, children, cbAsync){

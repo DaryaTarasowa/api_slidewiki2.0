@@ -161,7 +161,7 @@ exports.getTranslations = function(req, res){
         res.json(translations);
     });
 };
-exports.translate = deck.translate;
+exports.translate = deck.handleTranslation;
 exports.rename = deck.rename;
 
 

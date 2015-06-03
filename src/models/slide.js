@@ -3,6 +3,7 @@ var lib = require('./library');
 var connection = require('../config/config').connection;
 var async = require('async');
 var user = require('./user');
+var deck = require('./deck');
 var googleTranslate = require('google-translate')('AIzaSyAy-A64pHjmioVt5kMt7lvnVrFkPJavzvk');
 var _ = require('lodash');
 
@@ -21,7 +22,6 @@ function getDirectTranslations(branch_id, callback){
     var sql = "SELECT id, branch_id, language, created_at FROM ?? WHERE ?? = ? GROUP BY branch_id ORDER BY created_at DESC";
     var inserts = ['slide_revision', 'translated_from', branch_id];
     sql = mysql.format(sql, inserts);
-    console.log(sql);
     connection.query(sql, function(err, results) {
         callback(err, results);
     });
@@ -31,7 +31,6 @@ function getRootForTranslation(branch_id, callback){
     //gets the original deck looking
     exports.getTranslatedFrom(branch_id, function(err, parent_branch){
         if (err) callback(err);
-        console.log(parent_branch);
         if (parent_branch[0].translated_from === null) {
             callback(null, branch_id);
         }else{
@@ -99,7 +98,6 @@ function getLastRevision(rev_id, callback){
 }
 
 function getLastRevisionId(branch_id, callback){
-    console.log('slide_id: ' + branch_id);
     var sql = "SELECT id FROM ?? WHERE ?? = ? ORDER BY created_at DESC LIMIT 1";
         var inserts = ['slide_revision', 'branch_id', branch_id];
         sql = mysql.format(sql, inserts);
@@ -361,11 +359,12 @@ exports.getTitle = function(rev_id, callback){
                             return chr.language === slide_metadata.language;
                         });
                         if (x){ //already exists a slide branch on target language
-                            console.log(x);
                             slide_metadata.branch_id = x.branch_id;
                             slide_metadata.based_on = x.id;
                             exports.newRevision(slide_metadata, callback);
                         }else{
+                            slide_metadata.branch_id = deck.currentMaxBranchID_slide + 1;
+                            deck.currentMaxBranchID_slide++;
                             exports.new(slide_metadata, callback);
                         }
                     });
@@ -392,7 +391,6 @@ exports.getTitle = function(rev_id, callback){
         var inserts = [injection];
         sql = mysql.format(sql, inserts);
 
-        console.log(sql);
         connection.query(sql, function(err, qresults){
             if (err) cbAsync(err);
 
@@ -424,52 +422,32 @@ exports.getTitle = function(rev_id, callback){
         injection.translated_from = slide_metadata.translated_from;
         injection.translated_from_revision = slide_metadata.translated_from_revision;
         injection.translation_status = slide_metadata.translation_status || 'original';
+        injection.branch_id = slide_metadata.branch_id;
         
-        
-        async.waterfall(
-            [
-                function getBranchNewSlide(cbAsync) {
-                    var sql = "SELECT max(branch_id) AS max_brunch FROM slide_revision WHERE 1";
-                    connection.query(sql, function(err, results){
-                        if (err) cbAsync(err);
-                        injection.branch_id = results[0].max_brunch + 1;
-                        cbAsync(null, injection);
-                    });
-                },
-                function saveSlide(injection, cbAsync){
-                    
-                    var sql = "INSERT into slide_revision SET ?";
-                    var inserts = [injection];
-                    sql = mysql.format(sql, inserts);
-                    
-                    
-                    connection.query(sql, function(err, qresults){
-                        if (err) cbAsync(err);
+        var sql = "INSERT into slide_revision SET ?";
+        var inserts = [injection];
+        sql = mysql.format(sql, inserts);
 
-                        injection.id = qresults.insertId;
-                        delete injection.branch_id;
-                        delete injection.branch_owner;
-                        delete injection.language;
-                        
-                        getCreatedAt(injection.id, function(err, created_at){
-                            if (err) cbAsync(err);
-                            injection.created_at = created_at;
-                            cbAsync(null, injection);
-                        });
-                    });
-                },
-            ], 
-            function asyncComplete(err, result) {
-                callback(err, result);  
-            }
-        );
+        connection.query(sql, function(err, qresults){
+            if (err) callback(err);
+
+            injection.id = qresults.insertId;
+            delete injection.branch_id;
+            delete injection.branch_owner;
+            delete injection.language;
+
+            getCreatedAt(injection.id, function(err, created_at){
+                if (err) callback(err);
+                injection.created_at = created_at;
+                callback(null, injection);
+            });
+        });
     };
     
     exports.addToDeck = function(deck_id, slide_id, position, callback){
         //todo: what it should return?
         async.waterfall([
             function getPositionNewSlide(cbAsync){
-                console.log('position:' + position);
                 if (!position){
                     var sql = "SELECT max(position) AS max_position FROM deck_content WHERE ?";
                     var inserts = [{deck_revision_id : deck_id}];
@@ -715,7 +693,6 @@ exports.getTitle = function(rev_id, callback){
                         translations = _.uniq(translations, 'language');
                         _.forEach(translations, function(chr, key){
                             lib.languageToJson(chr.language , function(err, language_json){
-                                console.log(language_json);
                                 chr.language = language_json;
                                 return chr;
                             })                    
